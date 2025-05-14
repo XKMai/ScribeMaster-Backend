@@ -9,7 +9,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/register", registerHandler);
 
   // Login Handler
-fastify.post("/login", async (request, reply) => {
+    fastify.post("/login", async (request, reply) => {
   const { name, password } = request.body as { name: string; password: string };
 
   const user = await db.query.users.findFirst({
@@ -26,16 +26,25 @@ fastify.post("/login", async (request, reply) => {
 
   const token = fastify.jwt.sign({ name });
 
-  reply.setCookie('token', token, {
+    reply.setCookie('token', token, {
     httpOnly: true,
     secure: true,            
     sameSite: 'none',        
     path: '/',
     maxAge: 60 * 60 * 24,    // 1 day
-  });
+    });
 
-  return reply.send({ message: "Login successful" });
-});
+    return reply.send({ message: "Login successful" });
+    });
+
+    //Me authenticator Checker
+    fastify.get('/me', {
+        preHandler: [fastify.authenticate],
+        }, async (request, reply) => {
+        const user = request.user as { name: string };
+        return { user };
+    });
+
 };
 
 async function registerHandler(request,reply) {
