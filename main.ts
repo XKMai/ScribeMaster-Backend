@@ -2,9 +2,11 @@ import Fastify from 'fastify';
 import userRoutes from './routes/users';
 import fCookie from '@fastify/cookie';
 import jwt from '@fastify/jwt';
+import cors from '@fastify/cors';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { db } from './database/database';
 import authRoutes from './routes/authentication';
+
 
 const fastify = Fastify({ logger: true });
 
@@ -17,6 +19,11 @@ fastify.register(jwt, {
 
 fastify.register(fCookie, {
   secret: 'some-secret-key',
+});
+
+fastify.register(cors, {
+  origin: 'http://localhost:5173', //Frontend localhost url
+  credentials: true,               
 });
 
 // Decorator for protected routes
