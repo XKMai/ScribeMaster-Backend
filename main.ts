@@ -15,11 +15,16 @@ const PORT = 5000;
 // Register plugins
 fastify.register(jwt, {
   secret: 'supersecretstring',
+  cookie: {
+    cookieName: 'token',
+    signed: false, // or true if you're signing it with @fastify/cookie
+  },
 });
 
 fastify.register(fCookie, {
   secret: 'some-secret-key',
 });
+
 
 fastify.register(cors, {
   origin: 'http://localhost:5173', //Frontend localhost url
