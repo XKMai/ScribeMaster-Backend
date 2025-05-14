@@ -12,33 +12,43 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 }
 
 //Insert a User
-function postUserHandler(request,reply) {
+async function postUserHandler(request,reply) {
     const { name, password } = request.body as { name: string; password:string };
-    db.insert(users).values({ name, password });
-    reply.code(201).send({ message: "User inserted" });
+    const inserted = await db.insert(users).values({ name, password }).returning();
+  
+    return reply.code(201).send({ message: "User inserted", user: inserted[0] });
 }
 
 //Get a User by Name, Probably slower
-function getUserHandler(request,reply) {
-    const {name} = request.body as { name:string }
-    const result = db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.name, name),  //Drizzle way of query
-    })
-    reply.code(201).send({user:result})
+async function getUserHandler(request, reply) {
+    const { name } = request.query as { name: string };
+
+    const result = await db.query.users.findFirst({
+        where: (users, { eq }) => eq(users.name, name),
+    });
+
+    return reply.code(200).send({ user: result });
 }
 
 //Get a User by ID
-function getUserByIDHandler(request,reply) {
-    const {userId} = request.params
-    const result = db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.id, userId),  //Drizzle way of query by Id
-    })
-    reply.code(201).send({user:result})
+async function getUserByIDHandler(request, reply) {
+    const { id } = request.params as { id: string };
+
+    const result = await db.query.users.findFirst({
+        where: (users, { eq }) => eq(users.id, Number(id)), // convert to number if id is integer
+    });
+
+    if (!result) {
+        return reply.code(404).send({ error: "User not found" });
+    }
+
+    return reply.code(200).send({ user: result });
 }
 
+
 //Get UserID by Name
-function getUserID(name:string) {
-    const result = db.query.users.findFirst({
+async function getUserID(name:string) {
+    const result = await db.query.users.findFirst({
         columns: {id:true},                             //Selects only the id
         where: (users, { eq }) => eq(users.name, name),
     })
