@@ -8,7 +8,7 @@ fastify.register(require('@fastify/jwt'), {
 
 const PORT = 5000;
 
-
+fastify.register(userRoutes, { prefix: '/user' })
 
 fastify.get('/', function (request, reply) {
   reply.send({ hello: 'world' })
