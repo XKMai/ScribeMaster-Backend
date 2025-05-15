@@ -1,4 +1,4 @@
-import { FastifyPluginAsync } from 'fastify';
+import { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../database/database';
 import { users } from '../models/user';
 import bcrypt from 'bcrypt';
@@ -9,7 +9,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/register", registerHandler);
 
   // Login Handler
-    fastify.post("/login", async (request, reply) => {
+    fastify.post("/login", async (request:FastifyRequest, reply:FastifyReply) => {
   const { name, password } = request.body as { name: string; password: string };
 
   const user = await db.query.users.findFirst({
