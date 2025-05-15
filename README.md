@@ -6,10 +6,10 @@ Change the DATABASE_URL in the .env file to match the db url, postgresql://[user
 **example:** postgres://postgres:example_password@localhost:5432/postgres
 
 In terminal, type:   
-npm install
-npm run drizzle:generate 
-npm run drizzle:push 
-npm run start (Wait a bit, should start the backend server)
+npm install  
+npm run drizzle:generate   
+npm run drizzle:push   
+npm run start (Wait a bit, should start the backend server)  
 
 Note the url at the terminal, example: "Server listening at http://127.0.0.1:5000"  
 The api endpoints exposed that are needed are /login, /register, /me
