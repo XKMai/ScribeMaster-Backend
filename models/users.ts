@@ -6,5 +6,3 @@ export const users = pgTable("users", {
   password: varchar({ length: 255 }).notNull()  //
   //email: varchar({ length: 255 }).notNull().unique(),  //Email later
 });
-
-export default users;
