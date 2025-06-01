@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../database/database';
-import { users } from '../models/user';
+import { users } from '../models/users';
 
 
 const userRoutes: FastifyPluginAsync = async (fastify) => {
@@ -25,7 +25,7 @@ async function getUserHandler(request, reply) {
 
     const result = await db.query.users.findFirst({
         where: (users, { eq }) => eq(users.name, name),
-    });
+    });   
 
     return reply.code(200).send({ user: result });
 }

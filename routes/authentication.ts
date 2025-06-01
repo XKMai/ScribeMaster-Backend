@@ -1,6 +1,6 @@
 import { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../database/database';
-import { users } from '../models/user';
+import { users } from '../models/users';
 import bcrypt from 'bcrypt';
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
