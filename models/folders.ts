@@ -1,4 +1,4 @@
-import { integer, pgTable, varchar, boolean, json} from "drizzle-orm/pg-core";
+import { integer, pgTable, varchar, boolean, json } from "drizzle-orm/pg-core";
 import { users } from "./users";
 
 export const folders = pgTable("folders", {
@@ -6,5 +6,7 @@ export const folders = pgTable("folders", {
   name: varchar({ length: 255 }).notNull(),
   isCampaign: boolean().default(false),
   settings: json(), // campaign config
-  createdBy: integer().references(() => users.id).notNull()
+  createdBy: integer()
+    .references(() => users.id)
+    .notNull(),
 });
