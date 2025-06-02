@@ -1,8 +1,11 @@
-import 'fastify';
-import { FastifyReply, FastifyRequest } from 'fastify';
+import "fastify";
+import { FastifyReply, FastifyRequest } from "fastify";
 
-declare module 'fastify' {
+declare module "fastify" {
   interface FastifyInstance {
-    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    authenticate: (
+      request: FastifyRequest,
+      reply: FastifyReply
+    ) => Promise<void>;
   }
 }

@@ -1,34 +1,36 @@
-import Fastify from 'fastify';
-import userRoutes from './routes/users';
-import fCookie from '@fastify/cookie';
-import jwt from '@fastify/jwt';
-import cors from '@fastify/cors';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { db } from './database/database';
-import authRoutes from './routes/authentication';
-
+import Fastify from "fastify";
+import userRoutes from "./routes/users";
+import fCookie from "@fastify/cookie";
+import jwt from "@fastify/jwt";
+import cors from "@fastify/cors";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { db } from "./database/database";
+import authRoutes from "./routes/authentication";
+import campaignRoutes from "./routes/campaign";
+import folderRoutes from "./routes/folder";
+import notesRoutes from "./routes/notes";
 
 const fastify = Fastify({ logger: true });
 
 const PORT = 5000;
 
 // Register plugins
+
+fastify.register(fCookie, {
+  secret: "some-secret-key",
+});
+
 fastify.register(jwt, {
-  secret: 'supersecretstring',
+  secret: "supersecretstring",
   cookie: {
-    cookieName: 'token',
+    cookieName: "token",
     signed: false, // or true if you're signing it with @fastify/cookie
   },
 });
 
-fastify.register(fCookie, {
-  secret: 'some-secret-key',
-});
-
-
 fastify.register(cors, {
-  origin: 'http://localhost:5173', //Frontend localhost url
-  credentials: true,               
+  origin: "http://localhost:5173", //Frontend localhost url
+  credentials: true,
 });
 
 // Decorator for protected routes
@@ -41,12 +43,15 @@ fastify.decorate("authenticate", async function (request, reply) {
 });
 
 // Register routes
-fastify.register(userRoutes, { prefix: '/user' });
+fastify.register(userRoutes, { prefix: "/user" });
 fastify.register(authRoutes);
+fastify.register(campaignRoutes, { prefix: "/campaign" });
+fastify.register(folderRoutes, { prefix: "/folder" });
+fastify.register(notesRoutes, { prefix: "/notes" });
 
 // Root route
-fastify.get('/', async (request, reply) => {
-  reply.send({ hello: 'world' });
+fastify.get("/", async (request, reply) => {
+  reply.send({ hello: "world" });
 });
 
 // Start the server
@@ -61,4 +66,3 @@ const start = async () => {
 };
 
 start();
-
