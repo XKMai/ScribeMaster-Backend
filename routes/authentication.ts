@@ -38,7 +38,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         maxAge: 60 * 60 * 24, // 1 day
       });
 
-      return reply.send({ message: "Login successful" });
+      return reply.send({ message: "Login successful", UserId: user.id });
     }
   );
 
