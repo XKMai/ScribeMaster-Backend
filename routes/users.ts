@@ -39,7 +39,7 @@ async function getUserByIDHandler(request, reply) {
   const { id } = request.params as { id: number };
 
   const result = await db.query.users.findFirst({
-    where: (users, { eq }) => eq(users.id, Number(id)), // convert to number if id is integer
+    where: (users, { eq }) => eq(users.id, id),
   });
 
   if (!result) {

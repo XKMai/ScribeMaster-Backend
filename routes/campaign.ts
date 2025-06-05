@@ -68,6 +68,7 @@ async function joinCampaign(request: FastifyRequest, reply: FastifyReply) {
     return reply.code(400).send({ error: "Invalid folderId or userId" });
   }
 
+  //Find the campaign folder and check if it is a campaign
   const campaign = await db.query.folders.findFirst({
     where: (folders, { eq, and }) =>
       and(eq(folders.id, numericFolderId), eq(folders.isCampaign, true)),
@@ -80,9 +81,11 @@ async function joinCampaign(request: FastifyRequest, reply: FastifyReply) {
   const settings = (campaign.settings ?? {}) as CampaignSettings;
   const users = Array.isArray(settings.users) ? settings.users : [];
 
+  //Check if the user is already in the campaign
   if (!users.includes(numericUserId)) {
     users.push(numericUserId);
 
+    // Update the campaign settings with the new user
     await db
       .update(folders)
       .set({ settings: { ...settings, users } })

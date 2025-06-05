@@ -18,7 +18,7 @@ async function notesCreationHandler(
   const { title, content, createdBy, folderId } = request.body as {
     title: string;
     content: string;
-    createdBy: number; // This is the name of the user, not the ID
+    createdBy: number; // This is the ID of the user creating the note
     folderId: number; // Optional folder ID to link the note
   };
 
@@ -44,13 +44,16 @@ async function notesCreationHandler(
 async function noteGetHandler(request: FastifyRequest, reply: FastifyReply) {
   const { noteId } = request.params as { noteId: number };
 
+  // Find the note by ID
   const note = await db.query.notes.findFirst({
     where: eq(notes.id, noteId),
   });
+
   if (!note) {
     return reply.code(404).send({ error: "Note not found" });
   }
-  return reply.send(note);
+
+  return reply.code(201).send(note);
 }
 
 async function noteUpdateHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -60,6 +63,7 @@ async function noteUpdateHandler(request: FastifyRequest, reply: FastifyReply) {
     content?: string;
   };
 
+  //Find and update the note
   const updatedNote = await db
     .update(notes)
     .set({

@@ -54,6 +54,7 @@ async function folderCreationHandler(
 
     const position = Number(count); // Add to end
 
+    // Insert the folder item
     await db.insert(folderItems).values({
       folderId,
       type: "folder",
@@ -99,6 +100,8 @@ async function folderGetHandler(request: FastifyRequest, reply: FastifyReply) {
     items.map(async (item) => {
       let data: any = null;
 
+      // Depending on the type, fetch the corresponding data
+      // Add more types as needed
       if (item.type === "note") {
         data =
           (await db.query.notes.findFirst({

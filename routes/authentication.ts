@@ -16,6 +16,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         password: string;
       };
 
+      //Finds the user by name
       const user = await db.query.users.findFirst({
         where: (users, { eq }) => eq(users.name, name),
       });
@@ -30,6 +31,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
       const token = fastify.jwt.sign({ name });
 
+      // Set the token in a secure cookie
       reply.setCookie("token", token, {
         httpOnly: true,
         secure: true,
@@ -58,6 +60,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 async function registerHandler(request, reply) {
   const { name, password } = request.body as { name: string; password: string };
 
+  // Check if the user already exists
   const existingUser = await db.query.users.findFirst({
     where: (users, { eq }) => eq(users.name, name),
   });

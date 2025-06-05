@@ -24,7 +24,7 @@ fastify.register(jwt, {
   secret: "supersecretstring",
   cookie: {
     cookieName: "token",
-    signed: false, // or true if you're signing it with @fastify/cookie
+    signed: false,
   },
 });
 
