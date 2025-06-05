@@ -27,12 +27,16 @@ async function getUserHandler(request, reply) {
     where: (users, { eq }) => eq(users.name, name),
   });
 
+  if (!result) {
+    return reply.code(404).send({ error: "User not found" });
+  }
+
   return reply.code(200).send({ user: result });
 }
 
 //Get a User by ID
 async function getUserByIDHandler(request, reply) {
-  const { id } = request.params as { id: string };
+  const { id } = request.params as { id: number };
 
   const result = await db.query.users.findFirst({
     where: (users, { eq }) => eq(users.id, Number(id)), // convert to number if id is integer
