@@ -10,5 +10,4 @@ export const folderItems = pgTable("folder_items", {
   type: varchar({ length: 50 }).notNull(), // e.g. 'note', 'entity', 'folder'
   refId: integer("ref_id").notNull(), // ID in the referenced table for that type
   position: integer().notNull(), // used for manual ordering
-  createdAt: timestamp({ withTimezone: true }).defaultNow(),
 });
