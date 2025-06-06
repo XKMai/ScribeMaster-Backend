@@ -51,8 +51,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: [fastify.authenticate],
     },
     async (request, reply) => {
-      const user = request.user as { name: string };
-      return { user };
+      const user = request.user as { id: number; name: string };
+      return { user: { id: user.id, name: user.name } };
     }
   );
 };
