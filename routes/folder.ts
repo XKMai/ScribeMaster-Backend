@@ -18,7 +18,8 @@ import {
 const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", folderCreationHandler);
   fastify.get("/:folderId", folderGetHandler);
-  fastify.patch("/", folderUpdateHandler);
+  fastify.patch("/:folderId", folderUpdateHandler); // Reusing the creation handler for updates
+  fastify.patch("/move", folderMovementHandler);
   fastify.delete("/:folderId", deleteFolderHandler);
 };
 
@@ -125,6 +126,38 @@ async function folderGetHandler(request: FastifyRequest, reply: FastifyReply) {
 }
 
 async function folderUpdateHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { folderId } = request.params as { folderId: number };
+  const { name, settings } = request.body as {
+    name?: string;
+    settings?: JSON;
+  };
+
+  // Check if the folder exists
+  const folder = await db.query.folders.findFirst({
+    where: eq(folders.id, folderId),
+  });
+
+  if (!folder) {
+    return reply.code(404).send({ error: "Folder not found" });
+  }
+
+  // Update the folder
+  const updatedFolder = await db
+    .update(folders)
+    .set({
+      name: name ?? folder.name,
+      settings: settings ?? folder.settings,
+    })
+    .where(eq(folders.id, folderId))
+    .returning();
+
+  return reply.code(200).send(updatedFolder[0]);
+}
+
+async function folderMovementHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
