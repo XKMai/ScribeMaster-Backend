@@ -31,7 +31,7 @@ async function folderCreationHandler(
     name: string;
     createdBy: number;
     settings?: JSON;
-    folderId?: number; // Optional to support nested folders
+    folderId: number; //Required if this folder is a subfolder
   };
 
   //Create the folder
@@ -154,7 +154,9 @@ async function folderUpdateHandler(
     .where(eq(folders.id, folderId))
     .returning();
 
-  return reply.code(200).send(updatedFolder[0]);
+  return reply
+    .code(200)
+    .send({ message: "Folder updated", folder: updatedFolder[0] });
 }
 
 async function folderMovementHandler(

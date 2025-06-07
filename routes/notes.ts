@@ -17,16 +17,16 @@ async function notesCreationHandler(
 ) {
   const { title, content, createdBy, folderId } = request.body as {
     title: string;
-    content: string;
+    content?: string;
     createdBy: number; // This is the ID of the user creating the note
-    folderId: number; // Optional folder ID to link the note
+    folderId: number; // Folder ID to link the note
   };
 
   const [note] = await db
     .insert(notes)
     .values({
       title,
-      content,
+      content: content ?? "",
       createdBy,
     })
     .returning();
