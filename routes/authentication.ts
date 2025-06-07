@@ -6,6 +6,7 @@ import bcrypt from "bcrypt";
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   // Register Handler
   fastify.post("/register", registerHandler);
+  fastify.get("/logout", logout);
 
   // Login Handler
   fastify.post(
@@ -29,13 +30,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const token = fastify.jwt.sign({ name });
+      const token = fastify.jwt.sign({ id: user.id, name });
 
       // Set the token in a secure cookie
-      reply.setCookie("token", token, {
+      reply.setCookie("Authorization", token, {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
+        secure: false,
+        sameSite: "lax",
         path: "/",
         maxAge: 60 * 60 * 24, // 1 day
       });
@@ -78,6 +79,18 @@ async function registerHandler(request, reply) {
   } catch (e) {
     return reply.code(500).send({ message: "Internal server error" });
   }
+}
+
+async function logout(request: FastifyRequest, reply: FastifyReply) {
+  // Clear the cookie
+  reply.clearCookie("Authorization", {
+    path: "/", // Must match the path used when setting the cookie
+    httpOnly: true, // Matches original
+    sameSite: "lax", // Matches original
+    secure: false, // Matches original (change to true in production)
+  });
+
+  return reply.code(200);
 }
 
 export default authRoutes;
