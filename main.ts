@@ -23,7 +23,7 @@ fastify.register(fCookie, {
 fastify.register(jwt, {
   secret: "supersecretstring",
   cookie: {
-    cookieName: "token",
+    cookieName: "Authorization",
     signed: false,
   },
 });
@@ -31,6 +31,7 @@ fastify.register(jwt, {
 fastify.register(cors, {
   origin: "http://localhost:5173", //Frontend localhost url
   credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 });
 
 // Decorator for protected routes
