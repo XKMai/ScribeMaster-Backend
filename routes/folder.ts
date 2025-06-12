@@ -18,7 +18,7 @@ import {
 const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", folderCreationHandler);
   fastify.get("/:folderId", folderGetHandler);
-  fastify.patch("/:folderId", folderUpdateHandler); // Reusing the creation handler for updates
+  fastify.patch("/:folderId", folderUpdateHandler);
   fastify.patch("/move", folderMovementHandler);
   fastify.delete("/:folderId", deleteFolderHandler);
 };
@@ -254,7 +254,6 @@ async function deleteFolderHandler(
 ) {
   const { folderId } = request.params as { folderId: number };
 
-  // Check if the folder exists
   const folder = await db.query.folders.findFirst({
     where: eq(folders.id, folderId),
   });
@@ -263,32 +262,37 @@ async function deleteFolderHandler(
     return reply.code(404).send({ error: "Folder not found" });
   }
 
-  // Recursive function to delete folder contents
-  async function deleteFolderRecursive(folderId: number) {
-    // Get all items in the folder
-    const items = await db
-      .select()
-      .from(folderItems)
-      .where(eq(folderItems.folderId, folderId));
+  await db.transaction(async (trx) => {
+    async function deleteFolderRecursive(folderId: number) {
+      const items = await trx
+        .select()
+        .from(folderItems)
+        .where(eq(folderItems.folderId, folderId));
 
-    for (const item of items) {
-      if (item.type === "note") {
-        // Delete the note
-        await db.delete(notes).where(eq(notes.id, item.refId));
-      } else if (item.type === "folder") {
-        // Recursively delete the subfolder
-        await deleteFolderRecursive(item.refId);
+      for (const item of items) {
+        if (item.type === "note") {
+          await trx.delete(notes).where(eq(notes.id, item.refId));
+        } else if (item.type === "folder") {
+          await deleteFolderRecursive(item.refId);
+        }
+
+        // Always remove the folderItem itself
+        await trx.delete(folderItems).where(eq(folderItems.id, item.id));
       }
 
-      // Delete the folderItem reference itself
-      await db.delete(folderItems).where(eq(folderItems.id, item.id));
+      // Delete this folder from its parent (if it exists)
+      await trx
+        .delete(folderItems)
+        .where(
+          and(eq(folderItems.refId, folderId), eq(folderItems.type, "folder"))
+        );
+
+      // Delete the folder itself
+      await trx.delete(folders).where(eq(folders.id, folderId));
     }
 
-    // Finally, delete the folder itself
-    await db.delete(folders).where(eq(folders.id, folderId));
-  }
-
-  await deleteFolderRecursive(folderId);
+    await deleteFolderRecursive(folderId);
+  });
 
   return reply.code(204).send();
 }
