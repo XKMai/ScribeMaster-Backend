@@ -2,7 +2,7 @@ import { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { db } from "../database/database";
 import { folderItems } from "../models/folderItems";
 import { notes } from "../models/notes";
-import { eq } from "drizzle-orm";
+import { eq, count as drizzleCount } from "drizzle-orm";
 
 const notesRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", notesCreationHandler);
@@ -31,11 +31,19 @@ async function notesCreationHandler(
     })
     .returning();
 
+  // Determine the next position
+  const [{ count }] = await db
+    .select({ count: drizzleCount() })
+    .from(folderItems)
+    .where(eq(folderItems.folderId, folderId));
+
+  const position = Number(count); // Add to end
+
   await db.insert(folderItems).values({
     folderId,
     type: "note",
     refId: note.id,
-    position: 0,
+    position: position,
   });
 
   return reply.code(201).send(note);
