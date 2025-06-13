@@ -3,8 +3,6 @@ import userRoutes from "./routes/users";
 import fCookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import cors from "@fastify/cors";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { db } from "./database/database";
 import authRoutes from "./routes/authentication";
 import campaignRoutes from "./routes/campaign";
 import folderRoutes from "./routes/folder";
@@ -58,7 +56,10 @@ fastify.get("/", async (request, reply) => {
 // Start the server
 const start = async () => {
   try {
-    await fastify.listen({ port: PORT });
+    await fastify.listen({
+      port: PORT,
+      host: "0.0.0.0",
+    });
     console.log(`🚀 Server is running at http://localhost:${PORT}`);
   } catch (error) {
     fastify.log.error(error);
