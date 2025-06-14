@@ -27,7 +27,8 @@ fastify.register(jwt, {
 });
 
 fastify.register(cors, {
-  origin: "http://localhost:5173", //Frontend localhost url
+  origin:
+    "http://http://scribemaster-frontend-alb-469534981.ap-southeast-1.elb.amazonaws.com:5173", //Frontend localhost url
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 });
@@ -42,11 +43,16 @@ fastify.decorate("authenticate", async function (request, reply) {
 });
 
 // Register routes
-fastify.register(userRoutes, { prefix: "/user" });
-fastify.register(authRoutes);
-fastify.register(campaignRoutes, { prefix: "/campaign" });
-fastify.register(folderRoutes, { prefix: "/folder" });
-fastify.register(notesRoutes, { prefix: "/notes" });
+fastify.register(
+  async function (apiRoutes, opts) {
+    apiRoutes.register(userRoutes, { prefix: "/user" });
+    apiRoutes.register(authRoutes);
+    apiRoutes.register(campaignRoutes, { prefix: "/campaign" });
+    apiRoutes.register(folderRoutes, { prefix: "/folder" });
+    apiRoutes.register(notesRoutes, { prefix: "/notes" });
+  },
+  { prefix: "/api" }
+);
 
 // Root route
 fastify.get("/", async (request, reply) => {
