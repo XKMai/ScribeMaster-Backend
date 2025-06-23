@@ -4,11 +4,13 @@ import {
   varchar,
   timestamp,
   json,
-  PgArray
+  PgArray,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { items } from "./items";
 import { features } from "process";
+import { relations } from "drizzle-orm";
+import { spell } from "./spell";
 
 export const entity = pgTable("entity", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(), // Unique ID for each item within a folder
@@ -38,7 +40,15 @@ export const entity = pgTable("entity", {
   features: varchar().notNull(), // String containing features, traits, abilities of the entity; Might change to json if needed
   attacks: json().notNull(), // JSON object containing attack actions of the entity, including spells if needed
 
-  spell_list: spells[], // Array of spells associated with the entity, if applicable
+  //spell_list: spells[], // Array of spells associated with the entity, if applicable
   spellcasting: json(), // JSON object containing spellcasting information, if applicable {spellcastingAbility: string, spellSaveDC: number, spellAttackBonus: number, etc.}
-  equipment:  // Array of items or equipment associated with the entity, if applicable
+  //equipment:  // Array of items or equipment associated with the entity, if applicable
+
+  currency: json().notNull(), // JSON object containing currency information, e.g. {gold: number, electrum:number, silver: number, copper: number}
+  otherProficiencies: json().notNull(), // JSON object containing other proficiencies, languages, tools, etc.
 });
+
+export const entityRelations = relations(entity, ({ many }) => ({
+  spells: many(spell),
+  items: many(items),
+}));
