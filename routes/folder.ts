@@ -3,6 +3,7 @@ import { db } from "../database/database";
 import { folders } from "../models/folders";
 import { folderItems } from "../models/folderItems";
 import { notes } from "../models/notes";
+import { entity } from "../models/entity";
 
 import {
   eq,
@@ -14,6 +15,9 @@ import {
   lte,
   sql,
 } from "drizzle-orm";
+import { spell } from "../models/spell";
+import { items } from "../models/items";
+import { playerCharacter } from "../models/player";
 
 const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", folderCreationHandler);
@@ -85,7 +89,7 @@ async function folderGetHandler(request: FastifyRequest, reply: FastifyReply) {
   }
 
   //Fetch items in the folder
-  const items = await db
+  const folderItemsList = await db
     .select({
       id: folderItems.id,
       type: folderItems.type,
@@ -98,21 +102,62 @@ async function folderGetHandler(request: FastifyRequest, reply: FastifyReply) {
 
   //Hydrate items with their data
   const hydratedItems = await Promise.all(
-    items.map(async (item) => {
+    folderItemsList.map(async (item) => {
       let data: any = null;
 
-      // Depending on the type, fetch the corresponding data
-      // Add more types as needed
-      if (item.type === "note") {
-        data =
-          (await db.query.notes.findFirst({
+      switch (item.type) {
+        case "note":
+          data = await db.query.notes.findFirst({
             where: eq(notes.id, item.refId),
-          })) ?? null;
-      } else if (item.type === "folder") {
-        data =
-          (await db.query.folders.findFirst({
+          });
+          break;
+
+        case "folder":
+          data = await db.query.folders.findFirst({
             where: eq(folders.id, item.refId),
-          })) ?? null;
+          });
+          break;
+
+        case "entity":
+        case "player": {
+          // Always fetch the base entity
+          const baseEntity = await db.query.entity.findFirst({
+            where: eq(entity.id, item.refId),
+          });
+
+          if (!baseEntity) break;
+
+          // If its a player, fetch the player character data as well and stick it to the data
+          if (item.type === "player") {
+            const playerData = await db.query.playerCharacter.findFirst({
+              where: eq(playerCharacter.id, item.refId),
+            });
+
+            data = {
+              ...baseEntity,
+              playerCharacter: playerData ?? null,
+            };
+          } else {
+            data = baseEntity;
+          }
+
+          break;
+        }
+
+        case "item":
+          data = await db.query.items.findFirst({
+            where: eq(items.id, item.refId),
+          });
+          break;
+
+        case "spell":
+          data = await db.query.spell.findFirst({
+            where: eq(spell.id, item.refId),
+          });
+          break;
+
+        default:
+          data = null;
       }
 
       return { ...item, data };

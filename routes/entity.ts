@@ -2,15 +2,18 @@ import { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { db } from "../database/database";
 import { entity, entityItems, entitySpells } from "../models/entity";
 import { playerCharacter } from "../models/player";
-import { eq } from "drizzle-orm";
+import { eq, count as drizzleCount } from "drizzle-orm";
 import { z } from "zod";
 import { spell } from "../models/spell";
 import { items } from "../models/items";
+import { folderItems } from "../models/folderItems";
+import { folders } from "../models/folders";
 
 const entityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", createEntityHandler);
   fastify.get("/:entityId", getEntityHandler);
   fastify.patch("/:entityId", updateEntityHandler);
+  fastify.post("/folder", addEntityToFolderHandler);
   fastify.delete("/:entityId", deleteEntityHandler);
 };
 
@@ -259,4 +262,64 @@ async function deleteEntityHandler(
   return reply.code(204).send();
 }
 
+async function addEntityToFolderHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { entityId, folderId, position } = request.body as {
+    entityId: number;
+    folderId: number;
+    position?: number;
+  };
+
+  // Check that folder exists
+  const folder = await db.query.folders.findFirst({
+    where: eq(folders.id, folderId),
+  });
+
+  if (!folder) {
+    return reply.code(404).send({ error: "Folder not found" });
+  }
+
+  // Check that entity exists and fetch its type
+  const entityResult = await db
+    .select({
+      id: entity.id,
+      type: entity.type,
+    })
+    .from(entity)
+    .where(eq(entity.id, entityId))
+    .then((res) => res[0]);
+
+  if (!entityResult) {
+    return reply.code(404).send({ error: "Entity not found" });
+  }
+
+  const detectedType = entityResult.type === "player" ? "player" : "entity";
+
+  // Determine final position
+  let finalPosition = position;
+  if (finalPosition === undefined) {
+    const [{ count }] = await db
+      .select({ count: drizzleCount() })
+      .from(folderItems)
+      .where(eq(folderItems.folderId, folderId));
+    finalPosition = Number(count);
+  }
+
+  // Insert into folderItems with the correct type
+  const [newItem] = await db
+    .insert(folderItems)
+    .values({
+      folderId,
+      type: detectedType,
+      refId: entityId,
+      position: finalPosition,
+    })
+    .returning();
+
+  return reply
+    .code(201)
+    .send({ message: `${detectedType} added to folder`, item: newItem });
+}
 export default entityRoutes;
