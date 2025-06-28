@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 const itemsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", itemsCreationHandler);
   fastify.get("/:itemId", itemGetHandler);
+  fastify.get("/user/:userId", getUserItemsHandler);
   fastify.patch("/:itemId", itemUpdateHandler);
   fastify.delete("/:itemId", itemDeleteHandler);
 };
@@ -53,6 +54,24 @@ async function itemGetHandler(request: FastifyRequest, reply: FastifyReply) {
   }
 
   return reply.code(200).send(item);
+}
+
+async function getUserItemsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { userId } = request.params as { userId: number };
+
+  const itemsList = await db
+    .select()
+    .from(items)
+    .where(eq(items.createdBy, userId));
+
+  if (itemsList.length === 0) {
+    return reply.code(404).send({ error: "No items found for this user" });
+  }
+
+  return reply.code(200).send(itemsList);
 }
 
 async function itemUpdateHandler(request: FastifyRequest, reply: FastifyReply) {
