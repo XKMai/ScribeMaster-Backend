@@ -11,10 +11,11 @@ export const playerCharacter = pgTable("player_character", {
     .primaryKey()
     .references(() => entity.id)
     .notNull(),
+
   playerName: varchar("player_name", { length: 100 }),
 
   level: integer("level").notNull(),
-  class: varchar({ length: 50 }).notNull(),
+  characterClass: varchar({ length: 50 }).notNull(),
   background: varchar({ length: 100 }),
   alignment: varchar({ length: 20 }),
   experience: integer("experience").default(0),

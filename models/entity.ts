@@ -40,9 +40,7 @@ export const entity = pgTable("entity", {
   features: varchar().notNull(), // String containing features, traits, abilities of the entity; Might change to json if needed
   attacks: json().notNull(), // JSON object containing attack actions of the entity, including spells if needed
 
-  //spell_list: spells[], // Array of spells associated with the entity, if applicable
   spellcasting: json(), // JSON object containing spellcasting information, if applicable {spellcastingAbility: string, spellSaveDC: number, spellAttackBonus: number, etc.}
-  //equipment:  // Array of items or equipment associated with the entity, if applicable
 
   currency: json().notNull(), // JSON object containing currency information, e.g. {gold: number, electrum:number, silver: number, copper: number}
   otherProficiencies: json().notNull(), // JSON object containing other proficiencies, languages, tools, etc.
@@ -52,3 +50,21 @@ export const entityRelations = relations(entity, ({ many }) => ({
   spells: many(spell),
   items: many(items),
 }));
+
+export const entitySpells = pgTable("entity_spells", {
+  entityId: integer("entity_id")
+    .references(() => entity.id)
+    .notNull(),
+  spellId: integer("spell_id")
+    .references(() => spell.id)
+    .notNull(),
+});
+
+export const entityItems = pgTable("entity_items", {
+  entityId: integer("entity_id")
+    .references(() => entity.id)
+    .notNull(),
+  itemId: integer("item_id")
+    .references(() => items.id)
+    .notNull(),
+});

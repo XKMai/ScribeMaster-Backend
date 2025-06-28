@@ -7,6 +7,8 @@ import authRoutes from "./routes/authentication";
 import campaignRoutes from "./routes/campaign";
 import folderRoutes from "./routes/folder";
 import notesRoutes from "./routes/notes";
+import entityRoutes from "./routes/entity";
+import spellsRoutes from "./routes/spells";
 
 const fastify = Fastify({ logger: true });
 
@@ -50,6 +52,8 @@ fastify.register(
     apiRoutes.register(campaignRoutes, { prefix: "/campaign" });
     apiRoutes.register(folderRoutes, { prefix: "/folder" });
     apiRoutes.register(notesRoutes, { prefix: "/notes" });
+    apiRoutes.register(entityRoutes, { prefix: "/entity" });
+    apiRoutes.register(spellsRoutes, { prefix: "/spell" });
   },
   { prefix: "/api" }
 );
