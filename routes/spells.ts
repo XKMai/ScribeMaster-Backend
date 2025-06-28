@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 const spellsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", createSpellHandler);
   fastify.get("/:spellId", getSpellHandler);
+  fastify.get("/user/:userId", getUserSpellsHandler);
   fastify.patch("/:spellId", updateSpellHandler);
   fastify.delete("/:spellId", deleteSpellHandler);
 };
@@ -77,6 +78,20 @@ async function getSpellHandler(request: FastifyRequest, reply: FastifyReply) {
   }
 
   return reply.code(200).send(spellRecord);
+}
+
+async function getUserSpellsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { userId } = request.params as { userId: number };
+
+  const spells = await db
+    .select()
+    .from(spell)
+    .where(eq(spell.createdBy, userId));
+
+  return reply.code(200).send(spells);
 }
 
 async function updateSpellHandler(
