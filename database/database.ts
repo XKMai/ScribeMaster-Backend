@@ -18,6 +18,7 @@ const pool = new Pool({
   user: dbConfig.user,
   password: dbConfig.password,
   database: dbConfig.database ?? undefined,
+  //connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false,
     ca: fs.readFileSync("/usr/src/app/global-bundle.pem").toString(),
