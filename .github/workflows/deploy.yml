@@ -51,14 +51,6 @@ jobs:
           NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
-      - name: Run Drizzle migration
-        run: |
-          npm ci
-          npm install -g drizzle-kit
-          npx drizzle-kit push
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
       - name: Update ECS service to use new task definition
         run: |
           aws ecs update-service \
