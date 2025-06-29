@@ -16,19 +16,28 @@ async function itemsCreationHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const { type, description, characteristics, createdBy, folderId, settings } =
-    request.body as {
-      type: string;
-      description: string;
-      characteristics: Record<string, any>;
-      createdBy: number;
-      folderId?: number;
-      settings?: Record<string, any>;
-    };
+  const {
+    name,
+    type,
+    description,
+    characteristics,
+    createdBy,
+    folderId,
+    settings,
+  } = request.body as {
+    name: string;
+    type: string;
+    description: string;
+    characteristics: Record<string, any>;
+    createdBy: number;
+    folderId?: number;
+    settings?: Record<string, any>;
+  };
 
   const [item] = await db
     .insert(items)
     .values({
+      name,
       type,
       description,
       characteristics,

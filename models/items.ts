@@ -13,6 +13,8 @@ export const items = pgTable("items", {
     .references(() => users.id)
     .notNull(),
   settings: json(), // Additional settings or configurations for the item
+
+  name: varchar({ length: 255 }).notNull(), // Name of the item
   type: varchar({ length: 50 }).notNull(), // e.g. 'weapon', 'armour', 'accessory', 'goods', 'consumable'
   description: varchar().notNull(), // Description of the item
   characteristics: json().notNull(), // JSON object containing item characteristics
