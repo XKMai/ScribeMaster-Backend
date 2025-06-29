@@ -10,6 +10,8 @@ dotenv.config();
 
 const dbConfig = parse(process.env.DATABASE_URL ?? "");
 
+const fs = require("fs");
+
 const pool = new Pool({
   host: dbConfig.host ?? undefined,
   port: dbConfig.port ? parseInt(dbConfig.port) : 5432,
@@ -18,6 +20,7 @@ const pool = new Pool({
   database: dbConfig.database ?? undefined,
   ssl: {
     rejectUnauthorized: false,
+    ca: fs.readFileSync("/usr/src/app/global-bundle.pem").toString(),
   },
 });
 
