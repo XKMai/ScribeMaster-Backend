@@ -25,6 +25,7 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch("/:folderId", folderUpdateHandler);
   fastify.patch("/move", folderMovementHandler);
   fastify.delete("/:folderId", deleteFolderHandler);
+  fastify.delete("/item/:itemId", deleteFolderItemHandler);
 };
 
 async function folderCreationHandler(
@@ -337,6 +338,47 @@ async function deleteFolderHandler(
     }
 
     await deleteFolderRecursive(folderId);
+  });
+
+  return reply.code(204).send();
+}
+
+//To delete items from folder, including entities, spells, items, etc.
+//Does not actually delete the item itself, just removes it from the folder
+async function deleteFolderItemHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { itemId } = request.params as { itemId: number };
+
+  // Find the item
+  const item = await db
+    .select()
+    .from(folderItems)
+    .where(eq(folderItems.id, itemId))
+    .then((res) => res[0]);
+
+  if (!item) {
+    return reply.code(404).send({ error: "Folder item not found" });
+  }
+
+  const { folderId, position } = item;
+
+  // Remove the item and shift remaining positions
+  await db.transaction(async (trx) => {
+    // Delete the item
+    await trx.delete(folderItems).where(eq(folderItems.id, itemId));
+
+    // Shift down the position of items that came after it
+    await trx
+      .update(folderItems)
+      .set({ position: sql`${folderItems.position} - 1` })
+      .where(
+        and(
+          eq(folderItems.folderId, folderId),
+          gt(folderItems.position, position)
+        )
+      );
   });
 
   return reply.code(204).send();
