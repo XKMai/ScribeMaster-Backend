@@ -30,7 +30,7 @@ fastify.register(jwt, {
 
 fastify.register(cors, {
   origin:
-    "http://http://scribemaster-frontend-alb-469534981.ap-southeast-1.elb.amazonaws.com:5173", //Frontend localhost url
+    "http://scribemaster-frontend-alb-469534981.ap-southeast-1.elb.amazonaws.com:5173", //Frontend localhost url
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 });
