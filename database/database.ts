@@ -14,6 +14,9 @@ dotenv.config(); //Load .env before anything else
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL, // Setup db connection based on DB URL
+  ssl: {
+    rejectUnauthorized: false, // <- Accept self-signed cert
+  },
 });
 
 export const db = drizzle(pool, {
