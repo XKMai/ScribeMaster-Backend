@@ -9,6 +9,7 @@ import folderRoutes from "./routes/folder";
 import notesRoutes from "./routes/notes";
 import entityRoutes from "./routes/entity";
 import spellsRoutes from "./routes/spells";
+import itemsRoutes from "./routes/items";
 
 const fastify = Fastify({ logger: true });
 
@@ -54,6 +55,7 @@ fastify.register(
     apiRoutes.register(notesRoutes, { prefix: "/notes" });
     apiRoutes.register(entityRoutes, { prefix: "/entity" });
     apiRoutes.register(spellsRoutes, { prefix: "/spell" });
+    apiRoutes.register(itemsRoutes, { prefix: "/item" });
   },
   { prefix: "/api" }
 );
