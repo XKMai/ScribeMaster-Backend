@@ -41,9 +41,12 @@ jobs:
       - name: Create new task definition revision
         id: register-task-def
         run: |
-          jq '.containerDefinitions[0].image = env.IMAGE_URI' task-def.json \
-            | jq 'del(.status, .revision, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
-            > new-task-def.json
+          jq --arg IMAGE "$IMAGE_URI" --arg DB_URL "${{ secrets.DATABASE_URL }}" '
+            .containerDefinitions[0].image = $IMAGE |
+            .containerDefinitions[0].environment += [{"name":"DATABASE_URL","value":$DB_URL}]
+          ' task-def.json |
+          jq 'del(.status, .revision, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+          > new-task-def.json
 
           NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV

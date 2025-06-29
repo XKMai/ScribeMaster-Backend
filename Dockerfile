@@ -13,5 +13,5 @@ COPY . .
 EXPOSE 5000
 
 # Run `drizzle:push` then start Fastify server
-CMD ["npx", "tsx", "main.ts"]
+CMD ["sh", "-c", "npx drizzle-kit push && npx tsx main.ts"]
 
