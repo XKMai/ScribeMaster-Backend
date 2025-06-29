@@ -21,6 +21,7 @@ export const playerCharacter = pgTable("player_character", {
   experience: integer("experience").default(0),
 
   inspiration: boolean().default(false),
+  hitDice: varchar({ length: 50 }).default(""), // e.g., "1d8" for a level 1 character
 
   personality: json(), // JSON object containing personality stuff{traits: string, ideals: string, bonds: string, flaws: string},
   notes: varchar().default(""), // General notes about the character

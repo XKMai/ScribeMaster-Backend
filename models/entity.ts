@@ -11,6 +11,7 @@ import { items } from "./items";
 import { features } from "process";
 import { relations } from "drizzle-orm";
 import { spell } from "./spell";
+import { attacks } from "./attacks";
 
 export const entity = pgTable("entity", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(), // Unique ID for each item within a folder
@@ -47,6 +48,7 @@ export const entity = pgTable("entity", {
 });
 
 export const entityRelations = relations(entity, ({ many }) => ({
+  attacks: many(attacks),
   spells: many(spell),
   items: many(items),
 }));
@@ -66,5 +68,14 @@ export const entityItems = pgTable("entity_items", {
     .notNull(),
   itemId: integer("item_id")
     .references(() => items.id)
+    .notNull(),
+});
+
+export const entityAttacks = pgTable("entity_attacks", {
+  entityId: integer("entity_id")
+    .references(() => entity.id)
+    .notNull(),
+  attackId: integer("attack_id")
+    .references(() => attacks.id)
     .notNull(),
 });
