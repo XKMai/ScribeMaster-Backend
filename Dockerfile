@@ -12,6 +12,6 @@ COPY . .
 # Expose Fastify port
 EXPOSE 5000
 
-# Run `drizzle:push` then start Fastify server
-CMD ["sh", "-c", "npx drizzle-kit push && npx tsx main.ts"]
+# Start Fastify server
+CMD ["npx", "tsx", "main.ts"]
 
