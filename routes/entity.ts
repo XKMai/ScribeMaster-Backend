@@ -1,6 +1,11 @@
 import { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { db } from "../database/database";
-import { entity, entityItems, entitySpells } from "../models/entity";
+import {
+  entity,
+  entityAttacks,
+  entityItems,
+  entitySpells,
+} from "../models/entity";
 import { playerCharacter } from "../models/player";
 import { eq, count as drizzleCount } from "drizzle-orm";
 import { z } from "zod";
@@ -8,10 +13,12 @@ import { spell } from "../models/spell";
 import { items } from "../models/items";
 import { folderItems } from "../models/folderItems";
 import { folders } from "../models/folders";
+import { attacks } from "../models/attacks";
 
 const entityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", createEntityHandler);
   fastify.get("/:entityId", getEntityHandler);
+  fastify.get("/:entityId/summary", getEntitySummaryHandler);
   fastify.patch("/:entityId", updateEntityHandler);
   fastify.post("/folder", addEntityToFolderHandler);
   fastify.delete("/:entityId", deleteEntityHandler);
@@ -141,6 +148,15 @@ async function createEntityHandler(
       );
     }
 
+    if (body.attackIds && Array.isArray(body.attackIds)) {
+      await db.insert(entityAttacks).values(
+        body.attackIds.map((itemId: number) => ({
+          entityId: newEntity.id,
+          itemId,
+        }))
+      );
+    }
+
     return reply.code(201).send(newEntity);
   } catch (err) {
     return reply.code(400).send({
@@ -177,6 +193,13 @@ async function getEntityHandler(request: FastifyRequest, reply: FastifyReply) {
     .where(eq(entityItems.entityId, entityId))
     .leftJoin(items, eq(entityItems.itemId, items.id));
 
+  // Fetch associated attacks
+  const attacksResult = await db
+    .select({ attacks })
+    .from(entityAttacks)
+    .where(eq(entityAttacks.entityId, entityId))
+    .leftJoin(attacks, eq(entityAttacks.attackId, attacks.id));
+
   let pcData: any = null;
   if (result.type === "player") {
     pcData = await db
@@ -190,7 +213,63 @@ async function getEntityHandler(request: FastifyRequest, reply: FastifyReply) {
     ...result,
     spells: spells.map((s) => s.spell),
     items: entityItemsResult.map((i) => i.items),
+    attacks: attacksResult.map((a) => a.attacks),
     ...(pcData ? { playerCharacter: pcData } : {}),
+  });
+}
+
+async function getEntitySummaryHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { entityId } = request.params as { entityId: number };
+
+  const result = await db
+    .select({
+      id: entity.id,
+      name: entity.name,
+      hp: entity.hp,
+      maxHp: entity.maxhp, // note: your schema uses lowercase `maxhp`
+      ac: entity.ac,
+      stats: entity.stats,
+      speed: entity.speed,
+      passivePerception: entity.passivePerception,
+      spellcasting: entity.spellcasting,
+      type: entity.type, // we use this to conditionally fetch PC data
+    })
+    .from(entity)
+    .where(eq(entity.id, entityId))
+    .then((res) => res[0]);
+
+  if (!result) {
+    return reply.code(404).send({ error: "Entity not found" });
+  }
+
+  // If it's a player, pull additional PC data
+  let pcData: { level: number; characterClass: string } | null = null;
+
+  if (result.type === "player") {
+    pcData = await db
+      .select({
+        level: playerCharacter.level,
+        characterClass: playerCharacter.characterClass,
+      })
+      .from(playerCharacter)
+      .where(eq(playerCharacter.id, entityId))
+      .then((res) => res[0] ?? null);
+  }
+
+  // Return selected fields + PC data if applicable
+  const {
+    type, // exclude type from final response
+    ...baseData
+  } = result;
+
+  return reply.code(200).send({
+    ...baseData,
+    ...(pcData
+      ? { level: pcData.level, characterClass: pcData.characterClass }
+      : {}),
   });
 }
 
