@@ -53,6 +53,7 @@ jobs:
 
       - name: Run Drizzle migration
         run: |
+          npm ci
           npm install -g drizzle-kit
           npx drizzle-kit push
         env:
