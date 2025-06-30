@@ -54,3 +54,4 @@ export const db = drizzle(pool, {
     items,
     spell,
   },
+});
