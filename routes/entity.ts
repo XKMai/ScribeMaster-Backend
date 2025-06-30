@@ -19,6 +19,7 @@ const entityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", createEntityHandler);
   fastify.get("/:entityId", getEntityHandler);
   fastify.get("/:entityId/summary", getEntitySummaryHandler);
+  fastify.get("/user/:userId", getEntityIdsByUserHandler);
   fastify.patch("/:entityId", updateEntityHandler.bind(fastify));
   fastify.post("/folder", addEntityToFolderHandler);
   fastify.delete("/:entityId", deleteEntityHandler);
@@ -271,6 +272,20 @@ async function getEntitySummaryHandler(
       ? { level: pcData.level, characterClass: pcData.characterClass }
       : {}),
   });
+}
+
+async function getEntityIdsByUserHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { userId } = request.params as { userId: number };
+
+  const entityIds = await db
+    .select({ id: entity.id, name: entity.name })
+    .from(entity)
+    .where(eq(entity.createdBy, userId));
+
+  return reply.code(200).send(entityIds.map((e) => e.id));
 }
 
 async function updateEntityHandler(
