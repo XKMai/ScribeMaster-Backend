@@ -12,6 +12,9 @@ COPY . .
 # Expose Fastify port
 EXPOSE 5000
 
-# Run `drizzle:push` then start Fastify server
-CMD ["npx", "tsx", "main.ts"]
+RUN wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+RUN export NODE_EXTRA_CA_CERTS="/usr/src/app/global-bundle.pem" 
+
+# Start Fastify server
+CMD ["sh", "-c", "npx drizzle-kit push && npx tsx main.ts"]
 

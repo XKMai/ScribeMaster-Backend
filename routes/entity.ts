@@ -19,8 +19,10 @@ const entityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", createEntityHandler);
   fastify.get("/:entityId", getEntityHandler);
   fastify.get("/:entityId/summary", getEntitySummaryHandler);
+
   fastify.get("/user/:userId", getEntityIdsByUserHandler);
   fastify.patch("/:entityId", updateEntityHandler.bind(fastify));
+
   fastify.post("/folder", addEntityToFolderHandler);
   fastify.delete("/:entityId", deleteEntityHandler);
 };
@@ -274,6 +276,7 @@ async function getEntitySummaryHandler(
   });
 }
 
+
 async function getEntityIdsByUserHandler(
   request: FastifyRequest,
   reply: FastifyReply
@@ -294,6 +297,7 @@ async function updateEntityHandler(
 ) {
   // Access fastify instance via 'this'
   const fastify = this as any;
+
 
   const { entityId } = request.params as { entityId: number };
   const body = request.body as any;
@@ -331,6 +335,7 @@ async function updateEntityHandler(
       .set(parsedPC)
       .where(eq(playerCharacter.id, entityId));
   }
+
 
   // // Get all folders (campaigns) this entity is in
   // const folderLinks = await db

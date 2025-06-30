@@ -66,6 +66,15 @@ fastify.get("/", async (request, reply) => {
   reply.send({ hello: "world" });
 });
 
+//Health check
+fastify.get("/api/health", async () => {
+  return {
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  };
+});
+
 // Start the server
 const start = async () => {
   try {
