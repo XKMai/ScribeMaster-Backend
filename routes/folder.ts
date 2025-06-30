@@ -3,6 +3,7 @@ import { db } from "../database/database";
 import { folders } from "../models/folders";
 import { folderItems } from "../models/folderItems";
 import { notes } from "../models/notes";
+import { entity } from "../models/entity";
 
 import {
   eq,
@@ -14,6 +15,9 @@ import {
   lte,
   sql,
 } from "drizzle-orm";
+import { spell } from "../models/spell";
+import { items } from "../models/items";
+import { playerCharacter } from "../models/player";
 
 const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", folderCreationHandler);
@@ -21,6 +25,7 @@ const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch("/:folderId", folderUpdateHandler);
   fastify.patch("/move", folderMovementHandler);
   fastify.delete("/:folderId", deleteFolderHandler);
+  fastify.delete("/item/:itemId", deleteFolderItemHandler);
 };
 
 async function folderCreationHandler(
@@ -85,7 +90,7 @@ async function folderGetHandler(request: FastifyRequest, reply: FastifyReply) {
   }
 
   //Fetch items in the folder
-  const items = await db
+  const folderItemsList = await db
     .select({
       id: folderItems.id,
       type: folderItems.type,
@@ -98,21 +103,62 @@ async function folderGetHandler(request: FastifyRequest, reply: FastifyReply) {
 
   //Hydrate items with their data
   const hydratedItems = await Promise.all(
-    items.map(async (item) => {
+    folderItemsList.map(async (item) => {
       let data: any = null;
 
-      // Depending on the type, fetch the corresponding data
-      // Add more types as needed
-      if (item.type === "note") {
-        data =
-          (await db.query.notes.findFirst({
+      switch (item.type) {
+        case "note":
+          data = await db.query.notes.findFirst({
             where: eq(notes.id, item.refId),
-          })) ?? null;
-      } else if (item.type === "folder") {
-        data =
-          (await db.query.folders.findFirst({
+          });
+          break;
+
+        case "folder":
+          data = await db.query.folders.findFirst({
             where: eq(folders.id, item.refId),
-          })) ?? null;
+          });
+          break;
+
+        case "entity":
+        case "player": {
+          // Always fetch the base entity
+          const baseEntity = await db.query.entity.findFirst({
+            where: eq(entity.id, item.refId),
+          });
+
+          if (!baseEntity) break;
+
+          // If its a player, fetch the player character data as well and stick it to the data
+          if (item.type === "player") {
+            const playerData = await db.query.playerCharacter.findFirst({
+              where: eq(playerCharacter.id, item.refId),
+            });
+
+            data = {
+              ...baseEntity,
+              playerCharacter: playerData ?? null,
+            };
+          } else {
+            data = baseEntity;
+          }
+
+          break;
+        }
+
+        case "item":
+          data = await db.query.items.findFirst({
+            where: eq(items.id, item.refId),
+          });
+          break;
+
+        case "spell":
+          data = await db.query.spell.findFirst({
+            where: eq(spell.id, item.refId),
+          });
+          break;
+
+        default:
+          data = null;
       }
 
       return { ...item, data };
@@ -292,6 +338,47 @@ async function deleteFolderHandler(
     }
 
     await deleteFolderRecursive(folderId);
+  });
+
+  return reply.code(204).send();
+}
+
+//To delete items from folder, including entities, spells, items, etc.
+//Does not actually delete the item itself, just removes it from the folder
+async function deleteFolderItemHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { itemId } = request.params as { itemId: number };
+
+  // Find the item
+  const item = await db
+    .select()
+    .from(folderItems)
+    .where(eq(folderItems.id, itemId))
+    .then((res) => res[0]);
+
+  if (!item) {
+    return reply.code(404).send({ error: "Folder item not found" });
+  }
+
+  const { folderId, position } = item;
+
+  // Remove the item and shift remaining positions
+  await db.transaction(async (trx) => {
+    // Delete the item
+    await trx.delete(folderItems).where(eq(folderItems.id, itemId));
+
+    // Shift down the position of items that came after it
+    await trx
+      .update(folderItems)
+      .set({ position: sql`${folderItems.position} - 1` })
+      .where(
+        and(
+          eq(folderItems.folderId, folderId),
+          gt(folderItems.position, position)
+        )
+      );
   });
 
   return reply.code(204).send();

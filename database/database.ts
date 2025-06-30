@@ -8,6 +8,11 @@ import path from "path";
 import { notes } from "../models/notes.ts";
 import { users } from "../models/users.ts";
 import { folders } from "../models/folders.ts";
+import { entity } from "../models/entity.ts";
+import { folderItems } from "../models/folderItems.ts";
+import { items } from "../models/items.ts";
+import { spell } from "../models/spell.ts";
+import { playerCharacter } from "../models/player.ts";
 
 console.log("⚡ DB setup file loaded");
 
@@ -38,4 +43,14 @@ const pool = new Pool({
   ssl: sslOptions || undefined,
 });
 
-export const db = drizzle(pool, { schema: { notes, users, folders } });
+export const db = drizzle(pool, {
+  schema: {
+    users,
+    folders,
+    folderItems,
+    notes,
+    entity,
+    playerCharacter,
+    items,
+    spell,
+  },
