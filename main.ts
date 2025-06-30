@@ -10,6 +10,7 @@ import notesRoutes from "./routes/notes";
 import entityRoutes from "./routes/entity";
 import spellsRoutes from "./routes/spells";
 import itemsRoutes from "./routes/items";
+import { Server } from "socket.io";
 
 const fastify = Fastify({ logger: true });
 
@@ -68,11 +69,36 @@ fastify.get("/", async (request, reply) => {
 // Start the server
 const start = async () => {
   try {
-    await fastify.listen({
+    const address = await fastify.listen({
       port: PORT,
       host: "0.0.0.0",
     });
-    console.log(`🚀 Server is running at http://localhost:${PORT}`);
+
+    const io = new Server(fastify.server, {
+      cors: {
+        origin:
+          "http://scribemaster-frontend-alb-469534981.ap-southeast-1.elb.amazonaws.com:5173",
+        credentials: true,
+      },
+    });
+
+    fastify.decorate("io", io);
+
+    io.on("connection", (socket) => {
+      console.log(`Socket connected: ${socket.id}`);
+
+      // Join a group/room
+      socket.on("joinGroup", (groupId) => {
+        socket.join(groupId);
+        console.log(`Socket ${socket.id} joined group ${groupId}`);
+      });
+
+      socket.on("disconnect", () => {
+        console.log(`❌ Socket disconnected: ${socket.id}`);
+      });
+    });
+
+    console.log(`🚀 Server running at ${address}`);
   } catch (error) {
     fastify.log.error(error);
     process.exit(1);

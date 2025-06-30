@@ -19,7 +19,7 @@ const entityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", createEntityHandler);
   fastify.get("/:entityId", getEntityHandler);
   fastify.get("/:entityId/summary", getEntitySummaryHandler);
-  fastify.patch("/:entityId", updateEntityHandler);
+  fastify.patch("/:entityId", updateEntityHandler.bind(fastify));
   fastify.post("/folder", addEntityToFolderHandler);
   fastify.delete("/:entityId", deleteEntityHandler);
 };
@@ -277,6 +277,9 @@ async function updateEntityHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  // Access fastify instance via 'this'
+  const fastify = this as any;
+
   const { entityId } = request.params as { entityId: number };
   const body = request.body as any;
 
@@ -312,6 +315,22 @@ async function updateEntityHandler(
       .update(playerCharacter)
       .set(parsedPC)
       .where(eq(playerCharacter.id, entityId));
+  }
+
+  // Get all folders (campaigns) this entity is in
+  const folderLinks = await db
+    .select({ folderId: folderItems.folderId })
+    .from(folderItems)
+    .where(eq(folderItems.refId, entityId));
+
+  // Emit to all related campaign rooms
+  if (folderLinks.length && fastify?.io) {
+    for (const { folderId } of folderLinks) {
+      fastify.io.to(`campaign-${folderId}`).emit("entityUpdated", {
+        entityId,
+        updatedEntity: { ...updatedEntity, ...(parsedPC ?? {}) },
+      });
+    }
   }
 
   return reply.code(200).send({ ...updatedEntity });
