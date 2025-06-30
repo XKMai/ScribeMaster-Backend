@@ -2,15 +2,32 @@ import dotenv from "dotenv";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { parse } from "pg-connection-string";
+import fs from "fs"; // ✅ IMPORT fs FIRST
+import path from "path";
+
 import { notes } from "../models/notes.ts";
 import { users } from "../models/users.ts";
 import { folders } from "../models/folders.ts";
+
+console.log("⚡ DB setup file loaded");
 
 dotenv.config();
 
 const dbConfig = parse(process.env.DATABASE_URL ?? "");
 
-const fs = require("fs");
+const sslOptions = (() => {
+  const certPath = path.resolve("./global-bundle.pem");
+
+  if (fs.existsSync(certPath)) {
+    console.log("✅ SSL certificate file found. Using CA bundle for SSL.");
+    return {
+      ca: fs.readFileSync(certPath).toString(),
+    };
+  } else {
+    console.warn("⚠️ SSL certificate file not found. Skipping CA bundle.");
+    return false;
+  }
+})();
 
 const pool = new Pool({
   host: dbConfig.host ?? undefined,
@@ -18,11 +35,7 @@ const pool = new Pool({
   user: dbConfig.user,
   password: dbConfig.password,
   database: dbConfig.database ?? undefined,
-  //connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-    ca: fs.readFileSync("/usr/src/app/global-bundle.pem").toString(),
-  },
+  ssl: sslOptions || undefined,
 });
 
 export const db = drizzle(pool, { schema: { notes, users, folders } });
