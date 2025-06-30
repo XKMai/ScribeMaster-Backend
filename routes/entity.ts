@@ -332,21 +332,21 @@ async function updateEntityHandler(
       .where(eq(playerCharacter.id, entityId));
   }
 
-  // Get all folders (campaigns) this entity is in
-  const folderLinks = await db
-    .select({ folderId: folderItems.folderId })
-    .from(folderItems)
-    .where(eq(folderItems.refId, entityId));
+  // // Get all folders (campaigns) this entity is in
+  // const folderLinks = await db
+  //   .select({ folderId: folderItems.folderId })
+  //   .from(folderItems)
+  //   .where(eq(folderItems.refId, entityId));
 
-  // Emit to all related campaign rooms
-  if (folderLinks.length && fastify?.io) {
-    for (const { folderId } of folderLinks) {
-      fastify.io.to(`campaign-${folderId}`).emit("entityUpdated", {
-        entityId,
-        updatedEntity: { ...updatedEntity, ...(parsedPC ?? {}) },
-      });
-    }
-  }
+  // // Emit to all related campaign rooms
+  // if (folderLinks.length && fastify?.io) {
+  //   for (const { folderId } of folderLinks) {
+  //     fastify.io.to(`campaign-${folderId}`).emit("entityUpdated", {
+  //       entityId,
+  //       updatedEntity: { ...updatedEntity, ...(parsedPC ?? {}) },
+  //     });
+  //   }
+  // }
 
   return reply.code(200).send({ ...updatedEntity });
 }
