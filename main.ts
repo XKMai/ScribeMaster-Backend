@@ -69,11 +69,6 @@ fastify.get("/", async (request, reply) => {
 // Start the server
 const start = async () => {
   try {
-    const address = await fastify.listen({
-      port: PORT,
-      host: "0.0.0.0",
-    });
-
     const io = new Server(fastify.server, {
       cors: {
         origin:
@@ -97,6 +92,11 @@ const start = async () => {
       socket.on("disconnect", () => {
         console.log(`❌ Socket disconnected: ${socket.id}`);
       });
+    });
+
+    const address = await fastify.listen({
+      port: PORT,
+      host: "0.0.0.0",
     });
 
     console.log(`🚀 Server running at ${address}`);
