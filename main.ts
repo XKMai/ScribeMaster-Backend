@@ -88,9 +88,10 @@ const start = async () => {
       console.log(`Socket connected: ${socket.id}`);
 
       // Join a group/room
-      socket.on("joinGroup", (groupId) => {
-        socket.join(groupId);
-        console.log(`Socket ${socket.id} joined group ${groupId}`);
+      socket.on("joinCampaign", (folderId: number) => {
+        const room = `campaign-${folderId}`;
+        socket.join(room);
+        console.log(`Socket ${socket.id} joined room ${room}`);
       });
 
       socket.on("disconnect", () => {
