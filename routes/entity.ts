@@ -276,6 +276,47 @@ async function getEntitySummaryHandler(
   });
 }
 
+export async function fetchEntities(entityIds: number[]) {
+  const results = await Promise.all(
+    entityIds.map(async (id) => {
+      // mimic getEntitySummaryHandler behavior
+      const result = await db
+        .select({
+          id: entity.id,
+          name: entity.name,
+          hp: entity.hp,
+          maxHp: entity.maxhp,
+          ac: entity.ac,
+          stats: entity.stats,
+          speed: entity.speed,
+          passivePerception: entity.passivePerception,
+          spellcasting: entity.spellcasting,
+          type: entity.type,
+        })
+        .from(entity)
+        .where(eq(entity.id, id))
+        .then((res) => res[0]);
+
+      if (!result) return null;
+
+      if (result.type === "player") {
+        const pc = await db
+          .select({
+            level: playerCharacter.level,
+            characterClass: playerCharacter.characterClass,
+          })
+          .from(playerCharacter)
+          .where(eq(playerCharacter.id, id))
+          .then((res) => res[0]);
+        return { ...result, ...pc };
+      }
+
+      return result;
+    })
+  );
+
+  return results.filter(Boolean); // remove nulls
+}
 
 async function getEntityIdsByUserHandler(
   request: FastifyRequest,
@@ -297,7 +338,6 @@ async function updateEntityHandler(
 ) {
   // Access fastify instance via 'this'
   const fastify = this as any;
-
 
   const { entityId } = request.params as { entityId: number };
   const body = request.body as any;
@@ -336,22 +376,21 @@ async function updateEntityHandler(
       .where(eq(playerCharacter.id, entityId));
   }
 
+  // Get all folders (campaigns) this entity is in
+  const folderLinks = await db
+    .select({ folderId: folderItems.folderId })
+    .from(folderItems)
+    .where(eq(folderItems.refId, entityId));
 
-  // // Get all folders (campaigns) this entity is in
-  // const folderLinks = await db
-  //   .select({ folderId: folderItems.folderId })
-  //   .from(folderItems)
-  //   .where(eq(folderItems.refId, entityId));
-
-  // // Emit to all related campaign rooms
-  // if (folderLinks.length && fastify?.io) {
-  //   for (const { folderId } of folderLinks) {
-  //     fastify.io.to(`campaign-${folderId}`).emit("entityUpdated", {
-  //       entityId,
-  //       updatedEntity: { ...updatedEntity, ...(parsedPC ?? {}) },
-  //     });
-  //   }
-  // }
+  // Emit to all related campaign rooms
+  if (folderLinks.length && fastify?.io) {
+    for (const { folderId } of folderLinks) {
+      fastify.io.to(`campaign-${folderId}`).emit("entityUpdated", {
+        entityId,
+        updatedEntity: { ...updatedEntity, ...(parsedPC ?? {}) },
+      });
+    }
+  }
 
   return reply.code(200).send({ ...updatedEntity });
 }
