@@ -22,6 +22,7 @@ import { playerCharacter } from "../models/player";
 const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", folderCreationHandler);
   fastify.get("/:folderId", folderGetHandler);
+  fastify.get("/:folderId/:itemId", folderGetItemHandler);
   fastify.patch("/:folderId", folderUpdateHandler);
   fastify.patch("/move", folderMovementHandler);
   fastify.delete("/:folderId", deleteFolderHandler);
@@ -169,6 +170,87 @@ async function folderGetHandler(request: FastifyRequest, reply: FastifyReply) {
     ...folder,
     items: hydratedItems,
   };
+}
+
+async function folderGetItemHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { folderId, itemId } = request.params as {
+    folderId: number;
+    itemId: number;
+  };
+
+  // Fetch the item from the folder
+  const item = await db.query.folderItems.findFirst({
+    where: and(eq(folderItems.id, itemId), eq(folderItems.folderId, folderId)),
+  });
+
+  if (!item) {
+    return reply.code(404).send({ error: "Item not found in this folder" });
+  }
+
+  // Fetch the data associated with the item
+  // Same logic as in folderGetHandler, but for a single item
+
+  let data: any = null;
+
+  switch (item.type) {
+    case "note":
+      data = await db.query.notes.findFirst({
+        where: eq(notes.id, item.refId),
+      });
+      break;
+
+    case "folder":
+      data = await db.query.folders.findFirst({
+        where: eq(folders.id, item.refId),
+      });
+      break;
+
+    case "entity":
+    case "player": {
+      // Always fetch the base entity
+      const baseEntity = await db.query.entity.findFirst({
+        where: eq(entity.id, item.refId),
+      });
+
+      if (!baseEntity) break;
+
+      // If its a player, fetch the player character data as well and stick it to the data
+      if (item.type === "player") {
+        const playerData = await db.query.playerCharacter.findFirst({
+          where: eq(playerCharacter.id, item.refId),
+        });
+
+        data = {
+          ...baseEntity,
+          playerCharacter: playerData ?? null,
+        };
+      } else {
+        data = baseEntity;
+      }
+
+      break;
+    }
+
+    case "item":
+      data = await db.query.items.findFirst({
+        where: eq(items.id, item.refId),
+      });
+      break;
+
+    case "spell":
+      data = await db.query.spell.findFirst({
+        where: eq(spell.id, item.refId),
+      });
+      break;
+
+    default:
+      data = null;
+  }
+
+  return reply.code(200).send(data);
 }
 
 async function folderUpdateHandler(
