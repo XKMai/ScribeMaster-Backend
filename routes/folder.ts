@@ -22,7 +22,7 @@ import { playerCharacter } from "../models/player";
 const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", folderCreationHandler);
   fastify.get("/:folderId", folderGetHandler);
-  fastify.get("/:folderId/:itemId", folderGetItemHandler);
+  fastify.get("/item/:itemId", folderGetItemHandler);
   fastify.patch("/:folderId", folderUpdateHandler);
   fastify.patch("/move", folderMovementHandler);
   fastify.delete("/:folderId", deleteFolderHandler);
@@ -176,23 +176,18 @@ async function folderGetItemHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const { folderId, itemId } = request.params as {
-    folderId: number;
-    itemId: number;
-  };
+  const { itemId } = request.params as { itemId: number };
 
-  // Fetch the item from the folder
+  // Fetch the folderItem
   const item = await db.query.folderItems.findFirst({
-    where: and(eq(folderItems.id, itemId), eq(folderItems.folderId, folderId)),
+    where: eq(folderItems.id, itemId),
   });
 
   if (!item) {
     return reply.code(404).send({ error: "Item not found in this folder" });
   }
 
-  // Fetch the data associated with the item
-  // Same logic as in folderGetHandler, but for a single item
-
+  // Hydrate the item
   let data: any = null;
 
   switch (item.type) {
@@ -210,14 +205,12 @@ async function folderGetItemHandler(
 
     case "entity":
     case "player": {
-      // Always fetch the base entity
       const baseEntity = await db.query.entity.findFirst({
         where: eq(entity.id, item.refId),
       });
 
       if (!baseEntity) break;
 
-      // If its a player, fetch the player character data as well and stick it to the data
       if (item.type === "player") {
         const playerData = await db.query.playerCharacter.findFirst({
           where: eq(playerCharacter.id, item.refId),
@@ -250,9 +243,16 @@ async function folderGetItemHandler(
       data = null;
   }
 
-  return reply.code(200).send(data);
+  // Return a full folderItem object with data
+  return reply.code(200).send({
+    id: item.id,
+    folderId: item.folderId,
+    refId: item.refId,
+    position: item.position,
+    type: item.type,
+    data,
+  });
 }
-
 async function folderUpdateHandler(
   request: FastifyRequest,
   reply: FastifyReply
