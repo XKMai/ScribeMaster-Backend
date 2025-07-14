@@ -411,11 +411,19 @@ async function deleteEntityHandler(
     return reply.code(404).send({ error: "Entity not found" });
   }
 
-  if (entityData.type === "player") {
-    await db.delete(playerCharacter).where(eq(playerCharacter.id, entityId));
-  }
+  // Start transaction
+  await db.transaction(async (trx) => {
+    if (entityData.type === "player") {
+      await trx.delete(playerCharacter).where(eq(playerCharacter.id, entityId));
+    }
 
-  await db.delete(entity).where(eq(entity.id, entityId));
+    // Delete related folder items
+    await trx.delete(folderItems).where(eq(folderItems.refId, entityId));
+
+    // Delete entity
+    await trx.delete(entity).where(eq(entity.id, entityId));
+  });
+
   return reply.code(204).send();
 }
 
