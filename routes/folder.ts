@@ -21,6 +21,7 @@ import { playerCharacter } from "../models/player";
 
 const folderRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", folderCreationHandler);
+  fastify.post("/:folderId/:refId", addExistingItemToFolderHandler);
   fastify.get("/:folderId", folderGetHandler);
   fastify.get("/item/:itemId", folderGetItemHandler);
   fastify.patch("/:folderId", folderUpdateHandler);
@@ -71,6 +72,49 @@ async function folderCreationHandler(
   }
 
   return reply.code(201).send(folder);
+}
+
+async function addExistingItemToFolderHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { folderId, refId } = request.params as {
+    folderId: number;
+    refId: number;
+  };
+  const { type } = request.body as {
+    type: "note" | "folder" | "item" | "entity" | "player" | "spell";
+  };
+
+  // Verify the folder exists
+  const folder = await db.query.folders.findFirst({
+    where: eq(folders.id, folderId),
+  });
+
+  if (!folder) {
+    return reply.code(404).send({ error: "Folder not found" });
+  }
+
+  // Get current number of items in folder to determine position
+  const [{ count }] = await db
+    .select({ count: drizzleCount() })
+    .from(folderItems)
+    .where(eq(folderItems.folderId, folderId));
+
+  const position = Number(count);
+
+  // Insert into folderItems
+  const [newFolderItem] = await db
+    .insert(folderItems)
+    .values({
+      folderId,
+      type,
+      refId,
+      position,
+    })
+    .returning();
+
+  return reply.code(201).send(newFolderItem);
 }
 
 async function folderGetHandler(request: FastifyRequest, reply: FastifyReply) {
