@@ -85,16 +85,19 @@ async function getUserItemsHandler(
 
 async function itemUpdateHandler(request: FastifyRequest, reply: FastifyReply) {
   const { itemId } = request.params as { itemId: number };
-  const { type, description, characteristics, settings } = request.body as {
-    type?: string;
-    description?: string;
-    characteristics?: Record<string, any>;
-    settings?: Record<string, any>;
-  };
+  const { name, type, description, characteristics, settings } =
+    request.body as {
+      name?: string;
+      type?: string;
+      description?: string;
+      characteristics?: Record<string, any>;
+      settings?: Record<string, any>;
+    };
 
   const [updatedItem] = await db
     .update(items)
     .set({
+      name: name ?? undefined,
       type: type ?? undefined,
       description: description ?? undefined,
       characteristics: characteristics ?? undefined,
