@@ -5,6 +5,15 @@ import fs from "fs";
 import path from "path";
 
 async function main() {
+  // Construct SSL path safely
+  const sslCertPath = path.resolve("./global-bundle.pem");
+
+  // Ensure the certificate exists before continuing
+  if (!fs.existsSync(sslCertPath)) {
+    throw new Error(`❌ SSL certificate not found at: ${sslCertPath}`);
+  }
+
+  // Create PostgreSQL connection pool
   const pool = new Pool({
     host: "scribemaster-db.cngy2kewiir4.ap-southeast-1.rds.amazonaws.com",
     port: 5432,
@@ -12,19 +21,22 @@ async function main() {
     password: "BUeMb25ED1NbBshV18Me",
     database: "postgres",
     ssl: {
-      ca: fs.readFileSync(path.resolve("./global-bundle.pem")).toString(),
+      ca: fs.readFileSync(sslCertPath).toString(),
     },
   });
 
-  const db = drizzle(pool);
+  try {
+    const db = drizzle(pool);
 
-  await migrate(db, { migrationsFolder: "./drizzle/migrations" });
-
-  console.log("✅ Migrations applied successfully.");
-  await pool.end();
+    console.log("🚀 Running migrations...");
+    await migrate(db, { migrationsFolder: "./drizzle/migrations" });
+    console.log("✅ Migrations applied successfully.");
+  } catch (err) {
+    console.error("❌ Migration failed:", err);
+    process.exit(1);
+  } finally {
+    await pool.end();
+  }
 }
 
-main().catch((err) => {
-  console.error("❌ Migration failed:", err);
-  process.exit(1);
-});
+main();
