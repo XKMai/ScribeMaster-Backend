@@ -30,7 +30,7 @@ async function roomRoutes(app: any, io: any) {
       }
     });
 
-    socket.on("removeItem", ({ roomName, itemId }) => {
+    socket.on("removeEntity", ({ roomName, itemId }) => {
       const room = roomData.get(roomName);
       if (room) {
         room.items = room.items.filter((i) => i.id !== itemId);
