@@ -7,13 +7,14 @@ import {
   entitySpells,
 } from "../models/entity";
 import { playerCharacter } from "../models/player";
-import { eq, count as drizzleCount } from "drizzle-orm";
+import { eq, count as drizzleCount, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { spell } from "../models/spell";
 import { items } from "../models/items";
 import { folderItems } from "../models/folderItems";
 import { folders } from "../models/folders";
 import { attacks } from "../models/attacks";
+import { fa } from "zod/v4/locales";
 
 const entityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", createEntityHandler);
@@ -21,6 +22,7 @@ const entityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/:entityId/summary", getEntitySummaryHandler);
 
   fastify.get("/user/:userId", getEntityIdsByUserHandler);
+  fastify.get("/campaign/:folderId/entities", getCampaignEntitiesHandler);
   fastify.patch("/:entityId", updateEntityHandler.bind(fastify));
 
   fastify.post("/folder", addEntityToFolderHandler);
@@ -330,6 +332,57 @@ async function getEntityIdsByUserHandler(
     .where(eq(entity.createdBy, userId));
 
   return reply.code(200).send(entityIds.map((e) => e.id));
+}
+
+async function getCampaignEntitiesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { folderId } = request.params as { folderId: string };
+  const numericFolderId = parseInt(folderId, 10);
+
+  if (isNaN(numericFolderId)) {
+    return reply.code(400).send({ error: "Invalid folderId" });
+  }
+
+  // Verify that the folder is a campaign
+  const campaign = await db.query.folders.findFirst({
+    where: (folders, { eq, and }) =>
+      and(eq(folders.id, numericFolderId), eq(folders.isCampaign, true)),
+  });
+
+  if (!campaign) {
+    return reply.code(404).send({ error: "Campaign not found" });
+  }
+
+  // Get all folderItems of type 'entity' or 'player'
+  const items = await db
+    .select({
+      refId: folderItems.refId,
+      type: folderItems.type,
+    })
+    .from(folderItems)
+    .where(eq(folderItems.folderId, numericFolderId));
+
+  const entityRefs = items.filter(
+    (item) => item.type === "entity" || item.type === "player"
+  );
+
+  if (entityRefs.length === 0) {
+    return reply.code(200).send([]);
+  }
+
+  const entityIds = entityRefs.map((item) => item.refId);
+
+  const entitiesList = await db
+    .select({
+      id: entity.id,
+      name: entity.name,
+    })
+    .from(entity)
+    .where(inArray(entity.id, entityIds));
+
+  return reply.code(200).send(entitiesList);
 }
 
 async function updateEntityHandler(
