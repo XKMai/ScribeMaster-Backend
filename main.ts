@@ -11,6 +11,7 @@ import entityRoutes from "./routes/entity";
 import spellsRoutes from "./routes/spells";
 import itemsRoutes from "./routes/items";
 import { Server } from "socket.io";
+import roomRoutes from "./routes/room"; // Adjust the path if the file is named differently or in another folder
 
 const fastify = Fastify({ logger: true });
 
@@ -87,6 +88,7 @@ const start = async () => {
     });
 
     fastify.decorate("io", io);
+    roomRoutes(fastify, io);
 
     const address = await fastify.listen({
       port: PORT,

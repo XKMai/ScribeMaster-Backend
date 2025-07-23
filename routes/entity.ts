@@ -287,7 +287,7 @@ export async function fetchEntities(entityIds: number[]) {
           id: entity.id,
           name: entity.name,
           hp: entity.hp,
-          maxHp: entity.maxhp,
+          maxhp: entity.maxhp,
           ac: entity.ac,
           stats: entity.stats,
           speed: entity.speed,
@@ -389,27 +389,56 @@ async function updateEntityHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  // Access fastify instance via 'this'
-  const fastify = this as any;
-
-  const { entityId } = request.params as { entityId: number };
-  const body = request.body as any;
-
-  let parsedEntity, parsedPC;
   try {
-    parsedEntity = partialEntitySchema.parse(body);
-    parsedPC = body.playerCharacter
-      ? partialPlayerCharacterSchema.parse(body.playerCharacter)
+    const { entityId } = request.params as { entityId: number };
+    const body = request.body as any;
+    const fastify = this as any;
+
+    const result = await updateEntity({
+      entityId,
+      data: body,
+      io: fastify?.io,
+    });
+
+    return reply.code(200).send(result);
+  } catch (err) {
+    return reply.code(err.code ?? 500).send({
+      error: err.message ?? "Unknown error",
+      details: err.details ?? null,
+    });
+  }
+}
+
+// Seperated function to handle entity updates
+export async function updateEntity({
+  entityId,
+  data,
+  io,
+}: {
+  entityId: number;
+  data: any;
+  io?: any; // optional socket.io instance for broadcasting
+}) {
+  let parsedEntity, parsedPC;
+
+  try {
+    parsedEntity = partialEntitySchema.parse(data);
+    parsedPC = data.playerCharacter
+      ? partialPlayerCharacterSchema.parse(data.playerCharacter)
       : null;
   } catch (err) {
-    return reply.code(400).send({
-      error: "Validation Error",
+    throw {
+      code: 400,
+      message: "Validation Error",
       details: err instanceof z.ZodError ? err.errors : err,
-    });
+    };
   }
 
   if (!Object.keys(parsedEntity).length && !parsedPC) {
-    return reply.code(400).send({ error: "No fields provided for update" });
+    throw {
+      code: 400,
+      message: "No fields provided for update",
+    };
   }
 
   const [updatedEntity] = await db
@@ -419,7 +448,10 @@ async function updateEntityHandler(
     .returning();
 
   if (!updatedEntity) {
-    return reply.code(404).send({ error: "Entity not found" });
+    throw {
+      code: 404,
+      message: "Entity not found",
+    };
   }
 
   if (updatedEntity.type === "player" && parsedPC) {
@@ -429,23 +461,22 @@ async function updateEntityHandler(
       .where(eq(playerCharacter.id, entityId));
   }
 
-  // Get all folders (campaigns) this entity is in
-  const folderLinks = await db
-    .select({ folderId: folderItems.folderId })
-    .from(folderItems)
-    .where(eq(folderItems.refId, entityId));
+  // Emit to campaigns via socket.io
+  if (io) {
+    const folderLinks = await db
+      .select({ folderId: folderItems.folderId })
+      .from(folderItems)
+      .where(eq(folderItems.refId, entityId));
 
-  // Emit to all related campaign rooms
-  if (folderLinks.length && fastify?.io) {
     for (const { folderId } of folderLinks) {
-      fastify.io.to(`campaign-${folderId}`).emit("entityUpdated", {
+      io.to(`campaign-${folderId}`).emit("entityUpdated", {
         entityId,
         updatedEntity: { ...updatedEntity, ...(parsedPC ?? {}) },
       });
     }
   }
 
-  return reply.code(200).send({ ...updatedEntity });
+  return { ...updatedEntity, ...(parsedPC ?? {}) };
 }
 
 async function deleteEntityHandler(

@@ -1,7 +1,10 @@
 // Import fetchEntities from the appropriate module
-import { fetchEntities } from "./entity"; // Update this path to the actual location of fetchEntities
+import { eq } from "drizzle-orm";
+import { db } from "../database/database";
+import { entity } from "../models/entity";
+import { fetchEntities, updateEntity } from "./entity"; // Update this path to the actual location of fetchEntities
 
-async function roomRoutes(app: any, io: any) {
+export default async function roomRoutes(app: any, io: any) {
   // Store entities for each room
   const roomData = new Map(); // key: roomName, value: { items: [] }
 
@@ -30,12 +33,42 @@ async function roomRoutes(app: any, io: any) {
       }
     });
 
+    socket.on("updateEntity", async ({ roomName, entityId, updatedData }) => {
+      try {
+        const result = await updateEntity({
+          entityId,
+          data: updatedData,
+          io, // use server-wide io to broadcast to campaigns
+        });
+
+        // Emit specifically to this room as well (optional)
+        io.to(roomName).emit("entityUpdated", {
+          entityId,
+          updatedEntity: result,
+        });
+      } catch (err) {
+        socket.emit("error", {
+          message: err.message ?? "Failed to update entity",
+          details: err.details ?? null,
+        });
+      }
+    });
+
     socket.on("removeEntity", ({ roomName, itemId }) => {
       const room = roomData.get(roomName);
       if (room) {
         room.items = room.items.filter((i) => i.id !== itemId);
         io.to(roomName).emit("roomData", room);
       }
+    });
+
+    socket.on("chatMessage", ({ roomName, message, sender }) => {
+      // Optionally sanitize or validate inputs here
+      io.to(roomName).emit("chatMessage", {
+        sender,
+        message,
+        timestamp: Date.now(),
+      });
     });
 
     socket.on("disconnecting", () => {
