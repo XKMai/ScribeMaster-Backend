@@ -345,7 +345,6 @@ async function getCampaignEntitiesHandler(
     return reply.code(400).send({ error: "Invalid folderId" });
   }
 
-  // Verify that the folder is a campaign
   const campaign = await db.query.folders.findFirst({
     where: (folders, { eq, and }) =>
       and(eq(folders.id, numericFolderId), eq(folders.isCampaign, true)),
@@ -355,14 +354,48 @@ async function getCampaignEntitiesHandler(
     return reply.code(404).send({ error: "Campaign not found" });
   }
 
-  // Get all folderItems of type 'entity' or 'player'
+  //Get all descendant folder IDs recursively
+  async function getAllDescendantFolderIds(
+    folderIds: number[]
+  ): Promise<number[]> {
+    const seen = new Set<number>(folderIds);
+    const queue = [...folderIds];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const children = await db
+        .select({
+          folderId: folderItems.folderId,
+          refId: folderItems.refId,
+          type: folderItems.type,
+        })
+        .from(folderItems)
+        .where(eq(folderItems.folderId, currentId));
+
+      const subfolderIds = children
+        .filter((item) => item.refId && item.folderId && item.type === "folder")
+        .map((item) => item.refId)
+        .filter((id) => !seen.has(id));
+
+      subfolderIds.forEach((id) => {
+        seen.add(id);
+        queue.push(id);
+      });
+    }
+
+    return Array.from(seen);
+  }
+
+  const allFolderIds = await getAllDescendantFolderIds([numericFolderId]);
+
+  //Get all entity/player folderItems from all folderIds
   const items = await db
     .select({
       refId: folderItems.refId,
       type: folderItems.type,
     })
     .from(folderItems)
-    .where(eq(folderItems.folderId, numericFolderId));
+    .where(inArray(folderItems.folderId, allFolderIds));
 
   const entityRefs = items.filter(
     (item) => item.type === "entity" || item.type === "player"
