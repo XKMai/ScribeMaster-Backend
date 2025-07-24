@@ -234,13 +234,14 @@ async function getEntitySummaryHandler(
       id: entity.id,
       name: entity.name,
       hp: entity.hp,
-      maxHp: entity.maxhp, // note: your schema uses lowercase `maxhp`
+      maxhp: entity.maxhp,
+      temphp: entity.temphp,
       ac: entity.ac,
       stats: entity.stats,
       speed: entity.speed,
       passivePerception: entity.passivePerception,
       spellcasting: entity.spellcasting,
-      type: entity.type, // we use this to conditionally fetch PC data
+      type: entity.type,
     })
     .from(entity)
     .where(eq(entity.id, entityId))
@@ -265,10 +266,7 @@ async function getEntitySummaryHandler(
   }
 
   // Return selected fields + PC data if applicable
-  const {
-    type, // exclude type from final response
-    ...baseData
-  } = result;
+  const { type, ...baseData } = result;
 
   return reply.code(200).send({
     ...baseData,
