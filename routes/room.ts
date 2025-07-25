@@ -6,7 +6,7 @@ export default async function roomRoutes(app: any, io: any) {
   const roomData = new Map<
     string,
     {
-      entityIds: string[];
+      entityIds: number[];
       entities: any[];
       lastActive: number;
     }
@@ -14,6 +14,7 @@ export default async function roomRoutes(app: any, io: any) {
 
   io.on("connection", (socket) => {
     socket.on("joinRoom", async (roomName: string) => {
+      socket.join(roomName);
       let room = roomData.get(roomName);
       if (!room) {
         room = {
@@ -42,7 +43,7 @@ export default async function roomRoutes(app: any, io: any) {
         entityId,
       }: {
         roomName: string;
-        entityId: string;
+        entityId: number;
       }) => {
         const room = roomData.get(roomName);
         if (room && !room.entityIds.includes(entityId)) {
@@ -70,26 +71,66 @@ export default async function roomRoutes(app: any, io: any) {
         updatedData,
       }: {
         roomName: string;
-        entityId: string;
+        entityId: number;
         updatedData: any;
       }) => {
         try {
+          const room = roomData.get(roomName);
+          const prevEntity = room?.entities.find(e => e.id === entityId);
+
           const updatedEntity = await updateEntity({
-            entityId: Number(entityId),
+            entityId: entityId,
             data: updatedData,
             io,
           });
 
-          const room = roomData.get(roomName);
           if (room) {
             room.lastActive = Date.now();
             room.entities = room.entities.map((e) =>
-              e.id === Number(entityId) ? updatedEntity : e
+              e.id === entityId ? updatedEntity : e
             );
           }
 
+          if (prevEntity) {
+            const logEntries: string[] = [];
+            
+            if (updatedEntity.hp !== prevEntity.hp) {
+              const diff = updatedEntity.hp - prevEntity.hp;
+              const change = diff > 0 ? `gained ${diff}` : `lost ${Math.abs(diff)}`;
+              logEntries.push(`${updatedEntity.name} ${change} HP.`);
+            }
+            
+            if (updatedEntity.maxhp !== prevEntity.maxhp) {
+              const diff = updatedEntity.maxhp - prevEntity.maxhp;
+              const change = diff > 0 ? `increased max HP by ${diff}` : `reduced max HP by ${Math.abs(diff)}`;
+              logEntries.push(`${updatedEntity.name} ${change}.`);
+            }
+
+            if (updatedEntity.temphp !== prevEntity.temphp) {
+              const diff = updatedEntity.temphp - prevEntity.temphp;
+              if (Number.isNaN(diff)){
+                logEntries.push(`${updatedEntity.name} set temp HP to ${updatedEntity.temphp}.`);
+              } else {
+              const change = diff > 0 ? `increased temp HP by ${diff}` : `reduced temp HP by ${Math.abs(diff)}`;
+              logEntries.push(`${updatedEntity.name} ${change}.`);
+              }
+            }
+
+            if (updatedEntity.speed !== prevEntity.speed) {
+              logEntries.push(`${updatedEntity.name} speed changed from ${prevEntity.speed} to ${updatedEntity.speed}.`);
+            }
+            
+            // Emit system messages
+            logEntries.forEach((message) => {
+              io.to(roomName).emit("chatMessage", {
+                sender: "System",
+                message,
+                timestamp: Date.now(),
+              });
+            });
+          }
+
           io.to(roomName).emit("entityUpdated", {
-            entityId,
             updatedEntity,
           });
         } catch (err: any) {
