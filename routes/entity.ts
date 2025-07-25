@@ -184,27 +184,6 @@ async function getEntityHandler(request: FastifyRequest, reply: FastifyReply) {
     return reply.code(404).send({ error: "Entity not found" });
   }
 
-  // Fetch associated spells
-  const spells = await db
-    .select({ spell })
-    .from(entitySpells)
-    .where(eq(entitySpells.entityId, entityId))
-    .leftJoin(spell, eq(entitySpells.spellId, spell.id));
-
-  // Fetch associated items
-  const entityItemsResult = await db
-    .select({ items })
-    .from(entityItems)
-    .where(eq(entityItems.entityId, entityId))
-    .leftJoin(items, eq(entityItems.itemId, items.id));
-
-  // Fetch associated attacks
-  const attacksResult = await db
-    .select({ attacks })
-    .from(entityAttacks)
-    .where(eq(entityAttacks.entityId, entityId))
-    .leftJoin(attacks, eq(entityAttacks.attackId, attacks.id));
-
   let pcData: any = null;
   if (result.type === "player") {
     pcData = await db
@@ -216,9 +195,9 @@ async function getEntityHandler(request: FastifyRequest, reply: FastifyReply) {
 
   return reply.code(200).send({
     ...result,
-    spells: spells.map((s) => s.spell),
-    items: entityItemsResult.map((i) => i.items),
-    attacks: attacksResult.map((a) => a.attacks),
+    //spells: spells.map((s) => s.spell),
+    //: entityItemsResult.map((i) => i.items),
+    //attacks: attacksResult.map((a) => a.attacks),
     ...(pcData ? { playerCharacter: pcData } : {}),
   });
 }
@@ -286,6 +265,7 @@ export async function fetchEntities(entityIds: number[]) {
           name: entity.name,
           hp: entity.hp,
           maxhp: entity.maxhp,
+          temphp: entity.temphp,
           ac: entity.ac,
           stats: entity.stats,
           speed: entity.speed,
@@ -574,7 +554,6 @@ async function addEntityToFolderHandler(
   if (!entityResult) {
     return reply.code(404).send({ error: "Entity not found" });
   }
-
   const detectedType = entityResult.type === "player" ? "player" : "entity";
 
   // Determine final position
