@@ -7,13 +7,14 @@ import {
   entitySpells,
 } from "../models/entity";
 import { playerCharacter } from "../models/player";
-import { eq, count as drizzleCount } from "drizzle-orm";
+import { eq, count as drizzleCount, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { spell } from "../models/spell";
 import { items } from "../models/items";
 import { folderItems } from "../models/folderItems";
 import { folders } from "../models/folders";
 import { attacks } from "../models/attacks";
+import { fa } from "zod/v4/locales";
 
 const entityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", createEntityHandler);
@@ -21,6 +22,7 @@ const entityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/:entityId/summary", getEntitySummaryHandler);
 
   fastify.get("/user/:userId", getEntityIdsByUserHandler);
+  fastify.get("/campaign/:folderId/entities", getCampaignEntitiesHandler);
   fastify.patch("/:entityId", updateEntityHandler.bind(fastify));
 
   fastify.post("/folder", addEntityToFolderHandler);
@@ -182,27 +184,6 @@ async function getEntityHandler(request: FastifyRequest, reply: FastifyReply) {
     return reply.code(404).send({ error: "Entity not found" });
   }
 
-  // Fetch associated spells
-  const spells = await db
-    .select({ spell })
-    .from(entitySpells)
-    .where(eq(entitySpells.entityId, entityId))
-    .leftJoin(spell, eq(entitySpells.spellId, spell.id));
-
-  // Fetch associated items
-  const entityItemsResult = await db
-    .select({ items })
-    .from(entityItems)
-    .where(eq(entityItems.entityId, entityId))
-    .leftJoin(items, eq(entityItems.itemId, items.id));
-
-  // Fetch associated attacks
-  const attacksResult = await db
-    .select({ attacks })
-    .from(entityAttacks)
-    .where(eq(entityAttacks.entityId, entityId))
-    .leftJoin(attacks, eq(entityAttacks.attackId, attacks.id));
-
   let pcData: any = null;
   if (result.type === "player") {
     pcData = await db
@@ -214,9 +195,9 @@ async function getEntityHandler(request: FastifyRequest, reply: FastifyReply) {
 
   return reply.code(200).send({
     ...result,
-    spells: spells.map((s) => s.spell),
-    items: entityItemsResult.map((i) => i.items),
-    attacks: attacksResult.map((a) => a.attacks),
+    //spells: spells.map((s) => s.spell),
+    //: entityItemsResult.map((i) => i.items),
+    //attacks: attacksResult.map((a) => a.attacks),
     ...(pcData ? { playerCharacter: pcData } : {}),
   });
 }
@@ -232,13 +213,14 @@ async function getEntitySummaryHandler(
       id: entity.id,
       name: entity.name,
       hp: entity.hp,
-      maxHp: entity.maxhp, // note: your schema uses lowercase `maxhp`
+      maxhp: entity.maxhp,
+      temphp: entity.temphp,
       ac: entity.ac,
       stats: entity.stats,
       speed: entity.speed,
       passivePerception: entity.passivePerception,
       spellcasting: entity.spellcasting,
-      type: entity.type, // we use this to conditionally fetch PC data
+      type: entity.type,
     })
     .from(entity)
     .where(eq(entity.id, entityId))
@@ -263,10 +245,7 @@ async function getEntitySummaryHandler(
   }
 
   // Return selected fields + PC data if applicable
-  const {
-    type, // exclude type from final response
-    ...baseData
-  } = result;
+  const { type, ...baseData } = result;
 
   return reply.code(200).send({
     ...baseData,
@@ -276,6 +255,48 @@ async function getEntitySummaryHandler(
   });
 }
 
+export async function fetchEntities(entityIds: number[]) {
+  const results = await Promise.all(
+    entityIds.map(async (id) => {
+      // mimic getEntitySummaryHandler behavior
+      const result = await db
+        .select({
+          id: entity.id,
+          name: entity.name,
+          hp: entity.hp,
+          maxhp: entity.maxhp,
+          temphp: entity.temphp,
+          ac: entity.ac,
+          stats: entity.stats,
+          speed: entity.speed,
+          passivePerception: entity.passivePerception,
+          spellcasting: entity.spellcasting,
+          type: entity.type,
+        })
+        .from(entity)
+        .where(eq(entity.id, id))
+        .then((res) => res[0]);
+
+      if (!result) return null;
+
+      if (result.type === "player") {
+        const pc = await db
+          .select({
+            level: playerCharacter.level,
+            characterClass: playerCharacter.characterClass,
+          })
+          .from(playerCharacter)
+          .where(eq(playerCharacter.id, id))
+          .then((res) => res[0]);
+        return { ...result, ...pc };
+      }
+
+      return result;
+    })
+  );
+
+  return results.filter(Boolean); // remove nulls
+}
 
 async function getEntityIdsByUserHandler(
   request: FastifyRequest,
@@ -291,32 +312,144 @@ async function getEntityIdsByUserHandler(
   return reply.code(200).send(entityIds.map((e) => e.id));
 }
 
+async function getCampaignEntitiesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { folderId } = request.params as { folderId: string };
+  const numericFolderId = parseInt(folderId, 10);
+
+  if (isNaN(numericFolderId)) {
+    return reply.code(400).send({ error: "Invalid folderId" });
+  }
+
+  const campaign = await db.query.folders.findFirst({
+    where: (folders, { eq, and }) =>
+      and(eq(folders.id, numericFolderId), eq(folders.isCampaign, true)),
+  });
+
+  if (!campaign) {
+    return reply.code(404).send({ error: "Campaign not found" });
+  }
+
+  //Get all descendant folder IDs recursively
+  async function getAllDescendantFolderIds(
+    folderIds: number[]
+  ): Promise<number[]> {
+    const seen = new Set<number>(folderIds);
+    const queue = [...folderIds];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const children = await db
+        .select({
+          folderId: folderItems.folderId,
+          refId: folderItems.refId,
+          type: folderItems.type,
+        })
+        .from(folderItems)
+        .where(eq(folderItems.folderId, currentId));
+
+      const subfolderIds = children
+        .filter((item) => item.refId && item.folderId && item.type === "folder")
+        .map((item) => item.refId)
+        .filter((id) => !seen.has(id));
+
+      subfolderIds.forEach((id) => {
+        seen.add(id);
+        queue.push(id);
+      });
+    }
+
+    return Array.from(seen);
+  }
+
+  const allFolderIds = await getAllDescendantFolderIds([numericFolderId]);
+
+  //Get all entity/player folderItems from all folderIds
+  const items = await db
+    .select({
+      refId: folderItems.refId,
+      type: folderItems.type,
+    })
+    .from(folderItems)
+    .where(inArray(folderItems.folderId, allFolderIds));
+
+  const entityRefs = items.filter(
+    (item) => item.type === "entity" || item.type === "player"
+  );
+
+  if (entityRefs.length === 0) {
+    return reply.code(200).send([]);
+  }
+
+  const entityIds = entityRefs.map((item) => item.refId);
+
+  const entitiesList = await db
+    .select({
+      id: entity.id,
+      name: entity.name,
+    })
+    .from(entity)
+    .where(inArray(entity.id, entityIds));
+
+  return reply.code(200).send(entitiesList);
+}
+
 async function updateEntityHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  // Access fastify instance via 'this'
-  const fastify = this as any;
-
-
-  const { entityId } = request.params as { entityId: number };
-  const body = request.body as any;
-
-  let parsedEntity, parsedPC;
   try {
-    parsedEntity = partialEntitySchema.parse(body);
-    parsedPC = body.playerCharacter
-      ? partialPlayerCharacterSchema.parse(body.playerCharacter)
+    const { entityId } = request.params as { entityId: number };
+    const body = request.body as any;
+    const fastify = this as any;
+
+    const result = await updateEntity({
+      entityId,
+      data: body,
+      io: fastify?.io,
+    });
+
+    return reply.code(200).send(result);
+  } catch (err) {
+    return reply.code(err.code ?? 500).send({
+      error: err.message ?? "Unknown error",
+      details: err.details ?? null,
+    });
+  }
+}
+
+// Seperated function to handle entity updates
+export async function updateEntity({
+  entityId,
+  data,
+  io,
+}: {
+  entityId: number;
+  data: any;
+  io?: any; // optional socket.io instance for broadcasting
+}) {
+  let parsedEntity, parsedPC;
+
+  try {
+    parsedEntity = partialEntitySchema.parse(data);
+    parsedPC = data.playerCharacter
+      ? partialPlayerCharacterSchema.parse(data.playerCharacter)
       : null;
   } catch (err) {
-    return reply.code(400).send({
-      error: "Validation Error",
+    throw {
+      code: 400,
+      message: "Validation Error",
       details: err instanceof z.ZodError ? err.errors : err,
-    });
+    };
   }
 
   if (!Object.keys(parsedEntity).length && !parsedPC) {
-    return reply.code(400).send({ error: "No fields provided for update" });
+    throw {
+      code: 400,
+      message: "No fields provided for update",
+    };
   }
 
   const [updatedEntity] = await db
@@ -326,7 +459,10 @@ async function updateEntityHandler(
     .returning();
 
   if (!updatedEntity) {
-    return reply.code(404).send({ error: "Entity not found" });
+    throw {
+      code: 404,
+      message: "Entity not found",
+    };
   }
 
   if (updatedEntity.type === "player" && parsedPC) {
@@ -336,24 +472,22 @@ async function updateEntityHandler(
       .where(eq(playerCharacter.id, entityId));
   }
 
+  // Emit to campaigns via socket.io
+  if (io) {
+    const folderLinks = await db
+      .select({ folderId: folderItems.folderId })
+      .from(folderItems)
+      .where(eq(folderItems.refId, entityId));
 
-  // // Get all folders (campaigns) this entity is in
-  // const folderLinks = await db
-  //   .select({ folderId: folderItems.folderId })
-  //   .from(folderItems)
-  //   .where(eq(folderItems.refId, entityId));
+    for (const { folderId } of folderLinks) {
+      io.to(`campaign-${folderId}`).emit("entityUpdated", {
+        entityId,
+        updatedEntity: { ...updatedEntity, ...(parsedPC ?? {}) },
+      });
+    }
+  }
 
-  // // Emit to all related campaign rooms
-  // if (folderLinks.length && fastify?.io) {
-  //   for (const { folderId } of folderLinks) {
-  //     fastify.io.to(`campaign-${folderId}`).emit("entityUpdated", {
-  //       entityId,
-  //       updatedEntity: { ...updatedEntity, ...(parsedPC ?? {}) },
-  //     });
-  //   }
-  // }
-
-  return reply.code(200).send({ ...updatedEntity });
+  return { ...updatedEntity, ...(parsedPC ?? {}) };
 }
 
 async function deleteEntityHandler(
@@ -372,11 +506,19 @@ async function deleteEntityHandler(
     return reply.code(404).send({ error: "Entity not found" });
   }
 
-  if (entityData.type === "player") {
-    await db.delete(playerCharacter).where(eq(playerCharacter.id, entityId));
-  }
+  // Start transaction
+  await db.transaction(async (trx) => {
+    if (entityData.type === "player") {
+      await trx.delete(playerCharacter).where(eq(playerCharacter.id, entityId));
+    }
 
-  await db.delete(entity).where(eq(entity.id, entityId));
+    // Delete related folder items
+    await trx.delete(folderItems).where(eq(folderItems.refId, entityId));
+
+    // Delete entity
+    await trx.delete(entity).where(eq(entity.id, entityId));
+  });
+
   return reply.code(204).send();
 }
 
@@ -412,7 +554,6 @@ async function addEntityToFolderHandler(
   if (!entityResult) {
     return reply.code(404).send({ error: "Entity not found" });
   }
-
   const detectedType = entityResult.type === "player" ? "player" : "entity";
 
   // Determine final position
