@@ -83,14 +83,14 @@ async function registerHandler(request, reply) {
 
 async function logout(request: FastifyRequest, reply: FastifyReply) {
   // Clear the cookie
-  reply.clearCookie("Authorization", {
-    path: "/", // Must match the path used when setting the cookie
-    httpOnly: true, // Matches original
-    sameSite: "lax", // Matches original
-    secure: false, // Matches original (change to true in production)
-  });
-
-  return reply.code(200);
+  return reply
+    .clearCookie("Authorization", {
+      path: "/", // Must match the path used when setting the cookie
+      httpOnly: true, // Matches original
+      sameSite: "lax", // Matches original
+      secure: false, // Matches original (change to true in production)
+    })
+    .code(200);
 }
 
 export default authRoutes;
