@@ -1,7 +1,7 @@
 import { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { db } from "../database/database";
 import { folders } from "../models/folders";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 const campaignRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/", campaignCreationHandler);
@@ -37,10 +37,27 @@ async function campaignGetHandler(
 ) {
   const { userId } = request.params as { userId: number };
 
+  // Convert userId to number if it's a string
+  const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+
+  if (isNaN(numericUserId)) {
+    return reply.code(400).send({ error: "Invalid userId" });
+  }
+
+  // Query campaigns where the userId is included in the settings.users array
   const campaigns = await db
-    .select({ id: folders.id, name: folders.name })
+    .select({
+      id: folders.id,
+      name: folders.name,
+    })
     .from(folders)
-    .where(and(eq(folders.createdBy, userId), eq(folders.isCampaign, true)));
+    .where(
+      and(
+        eq(folders.isCampaign, true),
+        // Use PostgreSQL JSON operator to check if userId exists in settings.users array
+        sql`${folders.settings}::jsonb -> 'users' @> ${JSON.stringify([numericUserId])}`
+      )
+    );
 
   if (campaigns.length === 0) {
     return reply.code(404).send({ error: "No campaigns found" });
