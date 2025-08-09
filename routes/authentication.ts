@@ -59,22 +59,27 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 };
 
 async function registerHandler(request, reply) {
-  const { name, password } = request.body as { name: string; password: string };
+  const { name, email, password } = request.body as {
+    name: string;
+    email: string;
+    password: string;
+  };
 
   // Check if the user already exists
   const existingUser = await db.query.users.findFirst({
-    where: (users, { eq }) => eq(users.name, name),
+    where: (users, { or, eq }) =>
+      or(eq(users.name, name), eq(users.email, email)),
   });
 
   if (existingUser) {
-    return reply.code(401).send({
-      message: "User already exists with this name",
+    return reply.code(409).send({
+      message: "User already exists with this username or email",
     });
   }
 
   try {
     const hash = await bcrypt.hash(password, 10);
-    await db.insert(users).values({ name, password: hash });
+    await db.insert(users).values({ name, email, password: hash });
     return reply.code(201).send({ message: "User registered" });
   } catch (e) {
     return reply.code(500).send({ message: "Internal server error" });
