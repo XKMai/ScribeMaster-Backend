@@ -1,22 +1,31 @@
 import { FastifyPluginAsync } from "fastify";
 import { db } from "../database/database";
 import { users } from "../models/users";
+import { eq } from "drizzle-orm";
 
 const userRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.post("/", postUserHandler);
   fastify.get("/", getUserHandler);
   fastify.get("/:id", getUserByIDHandler);
+  fastify.put("/:id", updateUserHandler);
 };
 
-//Insert a User
-async function postUserHandler(request, reply) {
-  const { name, password } = request.body as { name: string; password: string };
-  const inserted = await db
-    .insert(users)
-    .values({ name, password })
+//Update a User
+async function updateUserHandler(request, reply) {
+  const { id } = request.params as { id: number };
+  const { name, email } = request.body as { name?: string; email?: string };
+
+  // Update user in the database
+  const result = await db
+    .update(users)
+    .set({ name, email })
+    .where(eq(users.id, id))
     .returning();
 
-  return reply.code(201).send({ message: "User inserted", user: inserted[0] });
+  if (!result || result.length === 0) {
+    return reply.code(404).send({ error: "User not found" });
+  }
+
+  return reply.code(200).send({ user: result[0] });
 }
 
 //Get a User by Name, Probably slower
