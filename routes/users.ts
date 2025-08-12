@@ -19,7 +19,7 @@ async function updateUserHandler(request, reply) {
     .update(users)
     .set({ name, email })
     .where(eq(users.id, id))
-    .returning();
+    .returning({ id: users.id, name: users.name, email: users.email });
 
   if (!result || result.length === 0) {
     return reply.code(404).send({ error: "User not found" });
