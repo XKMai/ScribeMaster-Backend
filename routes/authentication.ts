@@ -54,8 +54,16 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: [fastify.authenticate],
     },
     async (request, reply) => {
-      const user = request.user as { id: number; name: string };
-      return { user: { id: user.id, name: user.name } };
+      const { id } = request.user as { id: number };
+      const user = await db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.id, id),
+      });
+
+      if (!user) {
+        return reply.code(404).send({ message: "User not found" });
+      }
+
+      return { user: { id: user.id, name: user.name, email: user.email } };
     }
   );
 };
