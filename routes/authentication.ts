@@ -107,7 +107,8 @@ async function logout(request: FastifyRequest, reply: FastifyReply) {
       sameSite: "lax", // Matches original
       secure: false, // Matches original (change to true in production)
     })
-    .code(200);
+    .code(200)
+    .send({});
 }
 
 export default authRoutes;
