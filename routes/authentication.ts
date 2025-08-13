@@ -6,36 +6,38 @@ import bcrypt from "bcrypt";
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   // Register Handler
   fastify.post("/register", registerHandler);
-  fastify.get("/logout", logout);
+  fastify.post("/logout", logout);
 
   // Login Handler
   fastify.post(
     "/login",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { name, password } = request.body as {
-        name: string;
+      const { identifier, password } = request.body as {
+        identifier: string; // username or email
         password: string;
       };
 
-      //Finds the user by name
+      const raw = (identifier ?? "").trim();
+      const looksLikeEmail = raw.includes("@");
+      const normalized = looksLikeEmail ? raw.toLowerCase() : raw;
+
+      // Find the user by username OR email
       const user = await db.query.users.findFirst({
-        where: (users, { eq }) => eq(users.name, name),
+        where: (u, { or, eq }) =>
+          or(eq(u.name, normalized), eq(u.email, normalized)),
       });
 
       const isMatch = user && (await bcrypt.compare(password, user.password));
 
       if (!user || !isMatch) {
-        return reply.code(401).send({
-          message: "Invalid name or password",
-        });
+        return reply.code(401).send({ message: "Invalid credentials" });
       }
 
-      const token = fastify.jwt.sign({ id: user.id, name });
+      const token = fastify.jwt.sign({ id: user.id, name: user.name });
 
-      // Set the token in a secure cookie
       reply.setCookie("Authorization", token, {
         httpOnly: true,
-        secure: false,
+        secure: process.env.NODE_ENV === "production", // true in prod
         sameSite: "lax",
         path: "/",
         maxAge: 60 * 60 * 24, // 1 day
@@ -52,29 +54,44 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       preHandler: [fastify.authenticate],
     },
     async (request, reply) => {
-      const user = request.user as { id: number; name: string };
-      return { user: { id: user.id, name: user.name } };
+      const { id } = request.user as { id: number };
+      const user = await db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.id, id),
+      });
+
+      if (!user) {
+        return reply.code(404).send({ message: "User not found" });
+      }
+
+      return { user: { id: user.id, name: user.name, email: user.email } };
     }
   );
 };
 
 async function registerHandler(request, reply) {
-  const { name, password } = request.body as { name: string; password: string };
+  let { name, email, password } = request.body as {
+    name: string;
+    email: string;
+    password: string;
+  };
 
-  // Check if the user already exists
+  name = name.trim();
+  //Email to lowercase for standardization
+  email = email.trim().toLowerCase();
+
   const existingUser = await db.query.users.findFirst({
-    where: (users, { eq }) => eq(users.name, name),
+    where: (u, { or, eq }) => or(eq(u.name, name), eq(u.email, email)),
   });
 
   if (existingUser) {
-    return reply.code(401).send({
-      message: "User already exists with this name",
+    return reply.code(409).send({
+      message: "User already exists with this username or email",
     });
   }
 
   try {
     const hash = await bcrypt.hash(password, 10);
-    await db.insert(users).values({ name, password: hash });
+    await db.insert(users).values({ name, email, password: hash });
     return reply.code(201).send({ message: "User registered" });
   } catch (e) {
     return reply.code(500).send({ message: "Internal server error" });
@@ -90,7 +107,8 @@ async function logout(request: FastifyRequest, reply: FastifyReply) {
       sameSite: "lax", // Matches original
       secure: false, // Matches original (change to true in production)
     })
-    .code(200);
+    .code(200)
+    .send({});
 }
 
 export default authRoutes;
