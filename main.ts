@@ -95,7 +95,7 @@ const start = async () => {
       host: "0.0.0.0",
     });
 
-    // console.log(`🚀 Server running at ${address}`);
+    // console.log(`Server running at ${address}`);
   } catch (error) {
     fastify.log.error(error);
     process.exit(1);

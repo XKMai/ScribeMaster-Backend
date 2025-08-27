@@ -14,7 +14,7 @@ import { items } from "../models/items.ts";
 import { spell } from "../models/spell.ts";
 import { playerCharacter } from "../models/player.ts";
 
-console.log("⚡ DB setup file loaded");
+console.log("DB setup file loaded");
 
 dotenv.config();
 
@@ -24,12 +24,12 @@ const sslOptions = (() => {
   const certPath = path.resolve("./global-bundle.pem");
 
   if (fs.existsSync(certPath)) {
-    console.log("✅ SSL certificate file found. Using CA bundle for SSL.");
+    console.log("SSL certificate file found. Using CA bundle for SSL.");
     return {
       ca: fs.readFileSync(certPath).toString(),
     };
   } else {
-    console.warn("⚠️ SSL certificate file not found. Skipping CA bundle.");
+    console.warn("SSL certificate file not found. Skipping CA bundle.");
     return false;
   }
 })();
