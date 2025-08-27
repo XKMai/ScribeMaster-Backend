@@ -15,7 +15,7 @@ async function main() {
 
   // Create PostgreSQL connection pool
   const pool = new Pool({
-    host: "scribemaster-db.cngy2kewiir4.ap-southeast-1.rds.amazonaws.com",
+    host: "database-1.cngy2kewiir4.ap-southeast-1.rds.amazonaws.com",
     port: 5432,
     user: "postgres",
     password: "BUeMb25ED1NbBshV18Me",
